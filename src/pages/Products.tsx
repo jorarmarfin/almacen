@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { save } from "@tauri-apps/plugin-dialog";
 import Modal from "../components/Modal";
 import { catalogApi, errorMessage, type ImportReport, type Product, type ProductInput } from "../lib/api";
 import { centsToInput, formatCents, parseCents } from "../lib/money";
@@ -148,6 +149,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
   const [content, setContent] = useState<string | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
 
   const run = useMutation({
     mutationFn: (dry: boolean) => catalogApi.importCsv(content!, dry),
@@ -157,6 +159,21 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
     },
     onError: (e) => setError(errorMessage(e)),
   });
+
+  async function downloadTemplate() {
+    setError(null);
+    try {
+      const path = await save({
+        defaultPath: "plantilla_productos.csv",
+        filters: [{ name: "CSV", extensions: ["csv"] }],
+      });
+      if (!path) return;
+      await catalogApi.writeTextFile(path, await catalogApi.productsTemplate());
+      setSaved(path);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
 
   async function onFile(f: File | undefined) {
     if (!f) return;
@@ -176,8 +193,15 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
       <p className="text-sm text-slate-600">
         Columnas: <code>nombre</code> (obligatoria), <code>sku</code>, <code>codigo_barras</code>, <code>categoria</code>,{" "}
         <code>unidad</code>, <code>costo</code>, <code>precio</code>, <code>stock_minimo</code>, <code>stock_inicial</code>.
-        Separador coma o punto y coma.
+        Separador coma o punto y coma; las líneas con # se ignoran.
       </p>
+      <div className="mt-3 flex items-center gap-3">
+        <button className="btn-ghost min-h-10" onClick={downloadTemplate}>
+          ⬇ Descargar plantilla
+        </button>
+        {saved && <span className="text-sm text-emerald-700">Guardada en {saved}</span>}
+      </div>
+      <p className="mt-2 text-sm text-slate-600">Llénala en Excel, guárdala como CSV y súbela aquí.</p>
       <input className="input mt-4 py-2" type="file" accept=".csv,text/csv" onChange={(e) => onFile(e.target.files?.[0])} />
       {error && <p className="mt-3 text-red-700">{error}</p>}
       {report && (

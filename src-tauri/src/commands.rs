@@ -174,6 +174,18 @@ pub async fn import_products_csv(state: State<'_, AppState>, content: String, dr
 }
 
 #[tauri::command]
+pub fn get_products_template() -> String {
+    catalog::products_template()
+}
+
+/// Escribe un archivo de texto elegido por el usuario en un diálogo "Guardar como".
+#[tauri::command]
+pub fn write_text_file(path: String, content: String) -> AppResult<()> {
+    std::fs::write(path, content)?;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn adjust_stock(
     state: State<'_, AppState>,
     product_id: String,

@@ -118,6 +118,15 @@ async fn run_all(db: &Db) {
     assert_eq!(arroz.presentations[0].sale_price_cents, 420);
     assert_eq!(arroz.category_name.as_deref(), Some("Abarrotes"));
 
+    // La plantilla descargable se importa limpia (solo comentarios) y acepta filas reales con ';'
+    let tpl = products_template();
+    let empty = import_csv(pool, &tpl, false).await.unwrap();
+    assert!(empty.rows.is_empty() && empty.imported == 0);
+    let filled = format!("{tpl}Fideos 500g;FID-1;;Abarrotes;unidad;2,10;3,00;5;12\n");
+    let rep = import_csv(pool, &filled, false).await.unwrap();
+    assert_eq!((rep.imported, rep.rows.len()), (1, 1), "{:?}", rep.rows);
+    assert!(rep.rows[0].line >= 3);
+
     // Invariante global saldo == kardex
     assert!(stock_divergences(pool).await.unwrap().is_empty());
 }

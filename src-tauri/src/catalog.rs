@@ -476,6 +476,18 @@ pub struct ImportReport {
     pub dry_run: bool,
 }
 
+/// Plantilla CSV descargable: separador `;` y BOM UTF-8 para que Excel (es-PE) la abra en columnas.
+/// Las líneas que empiezan con `#` se ignoran al importar (filas de ejemplo/ayuda).
+pub fn products_template() -> String {
+    let mut s = String::from("\u{feff}");
+    s.push_str("# PLANTILLA DE PRODUCTOS - las líneas que empiezan con # se ignoran. Borra los ejemplos o déjalos.\n");
+    s.push_str("# nombre es obligatorio. sku vacío = automático. costo/precio en soles (12.50). stock_inicial genera un ajuste STOCK_INICIAL.\n");
+    s.push_str("nombre;sku;codigo_barras;categoria;unidad;costo;precio;stock_minimo;stock_inicial\n");
+    s.push_str("#Arroz Costeño 1kg;ARR-001;7750182000011;Abarrotes;unidad;3.50;4.20;10;50\n");
+    s.push_str("#Gaseosa 500ml;;;Bebidas;unidad;1.50;2.50;12;24\n");
+    s
+}
+
 /// Columnas: nombre, sku, codigo_barras, categoria, unidad, costo, precio, stock_minimo, stock_inicial.
 /// Cada fila va en su propia transacción; con `dry_run` se valida y se revierte.
 pub async fn import_csv(pool: &AnyPool, content: &str, dry_run: bool) -> AppResult<ImportReport> {
@@ -483,8 +495,10 @@ pub async fn import_csv(pool: &AnyPool, content: &str, dry_run: bool) -> AppResu
     use crate::inventory::{apply_movement, AJUSTE_ENTRADA};
 
     let content = content.trim_start_matches('\u{feff}');
-    let delim = if content.lines().next().is_some_and(|l| l.contains(';') && !l.contains(',')) { b';' } else { b',' };
-    let mut rdr = csv::ReaderBuilder::new().delimiter(delim).flexible(true).trim(csv::Trim::All).from_reader(content.as_bytes());
+    // El separador se detecta en la cabecera (primera línea que no es comentario).
+    let header_line = content.lines().find(|l| !l.trim().is_empty() && !l.trim_start().starts_with('#'));
+    let delim = if header_line.is_some_and(|l| l.contains(';') && !l.contains(',')) { b';' } else { b',' };
+    let mut rdr = csv::ReaderBuilder::new().delimiter(delim).comment(Some(b'#')).flexible(true).trim(csv::Trim::All).from_reader(content.as_bytes());
     let headers: Vec<String> = rdr
         .headers()
         .map_err(|e| AppError::Validation(format!("CSV inválido: {e}")))?
@@ -502,8 +516,8 @@ pub async fn import_csv(pool: &AnyPool, content: &str, dry_run: bool) -> AppResu
     let mut imported = 0;
     // dry_run: una sola transacción para todo el archivo (detecta duplicados entre filas) y rollback final.
     let mut dry_tx = if dry_run { Some(pool.begin().await?) } else { None };
-    for (i, rec) in rdr.records().enumerate() {
-        let line = i + 2;
+    for rec in rdr.records() {
+        let line = rec.as_ref().ok().and_then(|r| r.position()).map(|p| p.line() as usize).unwrap_or(0);
         let result: AppResult<()> = async {
             let rec = rec.map_err(|e| AppError::Validation(e.to_string()))?;
             let money = |name: &str| -> AppResult<i64> {

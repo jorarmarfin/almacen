@@ -130,6 +130,8 @@ export const catalogApi = {
   setProductActive: (id: string, active: boolean) => invoke<void>("set_product_active", { id, active }),
   importCsv: (content: string, dryRun: boolean) =>
     invoke<ImportReport>("import_products_csv", { content, dryRun }),
+  productsTemplate: () => invoke<string>("get_products_template"),
+  writeTextFile: (path: string, content: string) => invoke<void>("write_text_file", { path, content }),
   adjustStock: (productId: string, kind: "ENTRADA" | "SALIDA", qty: number, reason: string) =>
     invoke<number>("adjust_stock", { productId, kind, qty, reason }),
   kardex: (productId: string, from?: string, to?: string) =>

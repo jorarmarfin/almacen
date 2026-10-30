@@ -16,6 +16,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let state = tauri::async_runtime::block_on(commands::bootstrap(app.handle()))?;
             app.manage(state);
@@ -33,6 +34,8 @@ pub fn run() {
             commands::save_product,
             commands::set_product_active,
             commands::import_products_csv,
+            commands::get_products_template,
+            commands::write_text_file,
             commands::adjust_stock,
             commands::get_kardex,
             commands::check_stock_integrity,
