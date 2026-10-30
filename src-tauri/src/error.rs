@@ -8,6 +8,10 @@ pub enum AppError {
     AlreadyInitialized,
     #[error("{0}")]
     Validation(String),
+    #[error("no encontrado: {0}")]
+    NotFound(String),
+    #[error("stock insuficiente (disponible: {available})")]
+    InsufficientStock { available: i64 },
     #[error("error de base de datos: {0}")]
     Db(#[from] sqlx::Error),
     #[error("error de migración: {0}")]
@@ -24,6 +28,8 @@ impl AppError {
             Self::NotConfigured => "NOT_CONFIGURED",
             Self::AlreadyInitialized => "ALREADY_INITIALIZED",
             Self::Validation(_) => "VALIDATION",
+            Self::NotFound(_) => "NOT_FOUND",
+            Self::InsufficientStock { .. } => "INSUFFICIENT_STOCK",
             Self::Db(_) => "DB",
             Self::Migrate(_) => "MIGRATION",
             Self::Io(_) => "IO",

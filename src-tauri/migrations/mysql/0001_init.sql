@@ -1,5 +1,5 @@
 CREATE TABLE business_settings (
-  id TINYINT NOT NULL PRIMARY KEY CHECK (id = 1),
+  id BIGINT NOT NULL PRIMARY KEY CHECK (id = 1),
   business_name VARCHAR(255) NOT NULL,
   currency VARCHAR(8) NOT NULL DEFAULT 'PEN',
   default_min_stock BIGINT NOT NULL DEFAULT 0,
@@ -7,7 +7,7 @@ CREATE TABLE business_settings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE app_metadata (
-  id TINYINT NOT NULL PRIMARY KEY CHECK (id = 1),
+  id BIGINT NOT NULL PRIMARY KEY CHECK (id = 1),
   installation_id VARCHAR(36) NOT NULL,
   schema_version BIGINT NOT NULL,
   backup_info TEXT,
@@ -22,7 +22,7 @@ CREATE TABLE counters (
 CREATE TABLE categories (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   name VARCHAR(191) NOT NULL UNIQUE,
-  active TINYINT NOT NULL DEFAULT 1
+  active BIGINT NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE products (
@@ -34,7 +34,7 @@ CREATE TABLE products (
   base_unit VARCHAR(32) NOT NULL DEFAULT 'unidad',
   reference_cost_cents BIGINT NOT NULL DEFAULT 0 CHECK (reference_cost_cents >= 0),
   min_stock BIGINT NOT NULL DEFAULT 0 CHECK (min_stock >= 0),
-  active TINYINT NOT NULL DEFAULT 1,
+  active BIGINT NOT NULL DEFAULT 1,
   created_at VARCHAR(32) NOT NULL,
   updated_at VARCHAR(32) NOT NULL,
   FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
@@ -47,7 +47,7 @@ CREATE TABLE product_presentations (
   name VARCHAR(255) NOT NULL,
   factor_to_base BIGINT NOT NULL CHECK (factor_to_base > 0),
   sale_price_cents BIGINT NOT NULL CHECK (sale_price_cents >= 0),
-  active TINYINT NOT NULL DEFAULT 1,
+  active BIGINT NOT NULL DEFAULT 1,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 CREATE INDEX idx_presentations_product ON product_presentations(product_id);
@@ -58,7 +58,7 @@ CREATE TABLE suppliers (
   tax_id VARCHAR(36),
   phone VARCHAR(32),
   notes TEXT,
-  active TINYINT NOT NULL DEFAULT 1
+  active BIGINT NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE purchases (
@@ -160,7 +160,7 @@ CREATE TABLE cash_sessions (
   difference_cents BIGINT,
   note VARCHAR(500),
   status VARCHAR(16) NOT NULL CHECK (status IN ('OPEN','CLOSED')),
-  open_flag TINYINT NULL UNIQUE CHECK (open_flag IS NULL OR open_flag = 1)
+  open_flag BIGINT NULL UNIQUE CHECK (open_flag IS NULL OR open_flag = 1)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE cash_movements (

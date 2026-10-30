@@ -6,6 +6,8 @@ use tauri::{AppHandle, Manager, State};
 use tokio::sync::RwLock;
 
 use crate::config::{DbConfig, Engine};
+use crate::catalog::{self, Category, ImportReport, Product, ProductFilter, ProductInput};
+use crate::inventory::{self, AdjustKind, Movement};
 use crate::db::{test_connection, Db, SCHEMA_VERSION};
 use crate::error::{AppError, AppResult};
 
@@ -134,6 +136,68 @@ pub async fn init_business(state: State<'_, AppState>, input: InitBusiness) -> A
         default_min_stock: input.default_min_stock,
         schema_version: SCHEMA_VERSION,
     })
+}
+
+#[tauri::command]
+pub async fn list_categories(state: State<'_, AppState>) -> AppResult<Vec<Category>> {
+    catalog::list_categories(&state.db().await?.pool).await
+}
+
+#[tauri::command]
+pub async fn save_category(state: State<'_, AppState>, id: Option<String>, name: String, active: bool) -> AppResult<String> {
+    catalog::save_category(&state.db().await?.pool, id.as_deref(), &name, active).await
+}
+
+#[tauri::command]
+pub async fn delete_category(state: State<'_, AppState>, id: String) -> AppResult<()> {
+    catalog::delete_category(&state.db().await?.pool, &id).await
+}
+
+#[tauri::command]
+pub async fn list_products(state: State<'_, AppState>, filter: ProductFilter) -> AppResult<Vec<Product>> {
+    catalog::list_products(&state.db().await?.pool, &filter).await
+}
+
+#[tauri::command]
+pub async fn save_product(state: State<'_, AppState>, input: ProductInput) -> AppResult<String> {
+    catalog::save_product(&state.db().await?.pool, &input).await
+}
+
+#[tauri::command]
+pub async fn set_product_active(state: State<'_, AppState>, id: String, active: bool) -> AppResult<()> {
+    catalog::set_product_active(&state.db().await?.pool, &id, active).await
+}
+
+#[tauri::command]
+pub async fn import_products_csv(state: State<'_, AppState>, content: String, dry_run: bool) -> AppResult<ImportReport> {
+    catalog::import_csv(&state.db().await?.pool, &content, dry_run).await
+}
+
+#[tauri::command]
+pub async fn adjust_stock(
+    state: State<'_, AppState>,
+    product_id: String,
+    kind: AdjustKind,
+    qty: i64,
+    reason: String,
+) -> AppResult<i64> {
+    inventory::adjust_stock(&state.db().await?.pool, &product_id, kind, qty, &reason).await
+}
+
+#[tauri::command]
+pub async fn get_kardex(
+    state: State<'_, AppState>,
+    product_id: String,
+    from: Option<String>,
+    to: Option<String>,
+) -> AppResult<Vec<Movement>> {
+    inventory::kardex(&state.db().await?.pool, &product_id, from.as_deref(), to.as_deref(), 500).await
+}
+
+/// Devuelve productos donde saldo != suma del kardex (debe ser vacío).
+#[tauri::command]
+pub async fn check_stock_integrity(state: State<'_, AppState>) -> AppResult<Vec<String>> {
+    Ok(inventory::stock_divergences(&state.db().await?.pool).await?.into_iter().map(|d| d.0).collect())
 }
 
 /// Arranque: carga config y abre la BD si ya existe configuración previa.

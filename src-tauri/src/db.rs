@@ -7,7 +7,7 @@ use sqlx::{AnyPool, Executor};
 use crate::config::{DbConfig, Engine};
 use crate::error::{AppError, AppResult};
 
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 static DRIVERS: Once = Once::new();
 
@@ -82,19 +82,23 @@ pub async fn test_connection(cfg: &DbConfig, data_dir: &Path) -> AppResult<()> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
-    async fn sqlite_mem() -> Db {
+    pub(crate) async fn sqlite_mem() -> Db {
         let db = Db::connect_url("sqlite::memory:", Engine::Sqlite, 1).await.unwrap();
         db.migrate().await.unwrap();
         db
     }
 
+    /// Serializa los tests que comparten la misma base MySQL.
+    pub(crate) static MYSQL_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
     /// MySQL real solo si `MYSQL_TEST_URL` está definida (CI). Limpia el esquema antes.
-    async fn mysql_env() -> Option<Db> {
+    pub(crate) async fn mysql_env() -> Option<Db> {
         let url = std::env::var("MYSQL_TEST_URL").ok()?;
-        let db = Db::connect_url(&url, Engine::Mysql, 2).await.unwrap();
+        // 1 conexión: SET FOREIGN_KEY_CHECKS es por sesión
+        let db = Db::connect_url(&url, Engine::Mysql, 1).await.unwrap();
         sqlx::query("SET FOREIGN_KEY_CHECKS = 0").execute(&db.pool).await.unwrap();
         let tables: Vec<String> = sqlx::query_scalar(
             "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()",
@@ -159,6 +163,7 @@ mod tests {
 
     #[tokio::test]
     async fn mysql_schema_and_rules() {
+        let _g = MYSQL_LOCK.lock().await;
         match mysql_env().await {
             Some(db) => check_all(&db).await,
             None => eprintln!("MYSQL_TEST_URL no definida: se omite prueba MySQL"),

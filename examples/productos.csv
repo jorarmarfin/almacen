@@ -1,0 +1,5 @@
+nombre,sku,codigo_barras,categoria,unidad,costo,precio,stock_minimo,stock_inicial
+Arroz Costeño 1kg,ARR-001,7750182000011,Abarrotes,unidad,3.50,4.20,10,50
+Azúcar Rubia 1kg,AZU-001,,Abarrotes,unidad,3.20,3.90,10,40
+Gaseosa Inca Kola 500ml,,7750182000028,Bebidas,unidad,1.50,2.50,12,24
+Galleta Soda,,,Snacks,unidad,0.60,1.00,20,
