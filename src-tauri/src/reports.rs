@@ -250,7 +250,7 @@ pub async fn export_products_csv(pool: &AnyPool) -> AppResult<String> {
 pub async fn export_kardex_csv(pool: &AnyPool, from: &str, to: &str) -> AppResult<String> {
     let rows = sqlx::query(
         "SELECT m.occurred_at AS at, p.sku AS sku, p.name AS name, m.type AS type, m.qty_base_signed AS qty, \
-         m.balance_before AS before, m.balance_after AS after, m.origin_type AS origin, m.note AS note \
+         m.balance_before AS bal_before, m.balance_after AS bal_after, m.origin_type AS origin, m.note AS note \
          FROM stock_movements m JOIN products p ON p.id = m.product_id \
          WHERE m.occurred_at >= ? AND m.occurred_at <= ? ORDER BY m.occurred_at, m.seq, m.id",
     )
@@ -267,8 +267,8 @@ pub async fn export_kardex_csv(pool: &AnyPool, from: &str, to: &str) -> AppResul
             r.get("name"),
             r.get("type"),
             r.get::<i64, _>("qty").to_string(),
-            opt("before"),
-            opt("after"),
+            opt("bal_before"),
+            opt("bal_after"),
             r.get("origin"),
             r.get::<Option<String>, _>("note").unwrap_or_default(),
         ]

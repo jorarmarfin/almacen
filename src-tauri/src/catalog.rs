@@ -485,15 +485,15 @@ pub struct ImportReport {
     pub dry_run: bool,
 }
 
-/// Plantilla CSV descargable: separador `;` y BOM UTF-8 para que Excel (es-PE) la abra en columnas.
+/// Plantilla CSV descargable: separador coma, punto decimal y BOM UTF-8 (Excel es-PE).
 /// Las líneas que empiezan con `#` se ignoran al importar (filas de ejemplo/ayuda).
 pub fn products_template() -> String {
     let mut s = String::from("\u{feff}");
     s.push_str("# PLANTILLA DE PRODUCTOS - las líneas que empiezan con # se ignoran. Borra los ejemplos o déjalos.\n");
     s.push_str("# nombre es obligatorio. sku vacío = automático. costo/precio en soles (12.50). stock_inicial genera un ajuste STOCK_INICIAL.\n");
-    s.push_str("nombre;sku;codigo_barras;categoria;unidad;costo;precio;stock_minimo;stock_inicial\n");
-    s.push_str("#Arroz Costeño 1kg;ARR-001;7750182000011;Abarrotes;unidad;3.50;4.20;10;50\n");
-    s.push_str("#Gaseosa 500ml;;;Bebidas;unidad;1.50;2.50;12;24\n");
+    s.push_str("nombre,sku,codigo_barras,categoria,unidad,costo,precio,stock_minimo,stock_inicial\n");
+    s.push_str("#Arroz Costeño 1kg,ARR-001,7750182000011,Abarrotes,unidad,3.50,4.20,10,50\n");
+    s.push_str("#Gaseosa 500ml,,,Bebidas,unidad,1.50,2.50,12,24\n");
     s
 }
 
