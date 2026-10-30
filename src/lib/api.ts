@@ -34,6 +34,9 @@ export interface AppError {
   message: string;
 }
 
+export const errorCode = (e: unknown): string | null =>
+  typeof e === "object" && e && "code" in e ? String((e as AppError).code) : null;
+
 export const errorMessage = (e: unknown): string =>
   typeof e === "object" && e && "message" in e ? String((e as AppError).message) : String(e);
 
@@ -361,8 +364,9 @@ export interface RestoreReport {
 
 export const backupApi = {
   info: () => invoke<AppInfo>("get_app_info"),
-  exportBackup: (path: string) => invoke<BackupManifest>("export_backup", { path }),
+  exportBackup: (path: string, password: string | null = null) =>
+    invoke<BackupManifest>("export_backup", { path, password }),
   exportSqliteNative: (path: string) => invoke<void>("export_sqlite_native", { path }),
-  inspect: (path: string) => invoke<BackupManifest>("inspect_backup", { path }),
-  restore: (path: string) => invoke<RestoreReport>("restore_backup", { path }),
+  inspect: (path: string, password: string | null = null) => invoke<BackupManifest>("inspect_backup", { path, password }),
+  restore: (path: string, password: string | null = null) => invoke<RestoreReport>("restore_backup", { path, password }),
 };

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import Modal from "../components/Modal";
-import { backupApi, errorMessage, type BackupManifest } from "../lib/api";
+import { backupApi, errorCode, errorMessage, type BackupManifest } from "../lib/api";
 import { formatDateTime } from "../lib/money";
 
 const EXT = "mibodega-backup";
@@ -13,7 +13,7 @@ function stamp() {
   return `${n.getFullYear()}${p(n.getMonth() + 1)}${p(n.getDate())}-${p(n.getHours())}${p(n.getMinutes())}`;
 }
 
-function RestoreDialog({ path, manifest, onClose }: { path: string; manifest: BackupManifest; onClose: () => void }) {
+function RestoreDialog({ path, manifest, password, onClose }: { path: string; manifest: BackupManifest; password: string | null; onClose: () => void }) {
   const qc = useQueryClient();
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,7 +25,7 @@ function RestoreDialog({ path, manifest, onClose }: { path: string; manifest: Ba
     setBusy(true);
     setError(null);
     try {
-      const rep = await backupApi.restore(path);
+      const rep = await backupApi.restore(path, password);
       setDone(rep.pre_restore_backup ?? "(no fue posible crear el respaldo previo)");
       await qc.invalidateQueries();
     } catch (e) {
@@ -101,12 +101,85 @@ function RestoreDialog({ path, manifest, onClose }: { path: string; manifest: Ba
   );
 }
 
+function ExportDialog({ onClose, onConfirm }: { onClose: () => void; onConfirm: (password: string | null) => void }) {
+  const [encrypt, setEncrypt] = useState(true);
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const tooShort = encrypt && pw.length > 0 && pw.length < 8;
+  const mismatch = encrypt && pw !== pw2;
+  const invalid = encrypt && (pw.length < 8 || mismatch);
+  return (
+    <Modal title="Exportar respaldo" onClose={onClose}>
+      <div className="space-y-4">
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={encrypt} onChange={(e) => setEncrypt(e.target.checked)} /> Proteger con contraseña (recomendado)
+        </label>
+        {encrypt && (
+          <>
+            <div>
+              <label className="label">Contraseña (mínimo 8 caracteres)</label>
+              <input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus />
+            </div>
+            <div>
+              <label className="label">Repite la contraseña</label>
+              <input className="input" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+            </div>
+            {tooShort && <p className="text-sm text-accent-dark">Usa al menos 8 caracteres.</p>}
+            {pw2 && mismatch && <p className="text-sm text-accent-dark">Las contraseñas no coinciden.</p>}
+            <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+              <b>Si olvidas la contraseña, el respaldo no se puede recuperar.</b> Anótala en un lugar seguro.
+            </p>
+          </>
+        )}
+        {!encrypt && <p className="text-sm text-slate-600">Sin contraseña, cualquiera con el archivo puede leer tus ventas y costos.</p>}
+        <div className="flex justify-end gap-3">
+          <button className="btn-ghost" onClick={onClose}>
+            Cancelar
+          </button>
+          <button className="btn-accent" disabled={invalid} onClick={() => onConfirm(encrypt ? pw : null)}>
+            Elegir destino…
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function PasswordPrompt({ error, onClose, onConfirm }: { error: string | null; onClose: () => void; onConfirm: (pw: string) => void }) {
+  const [pw, setPw] = useState("");
+  return (
+    <Modal title="Respaldo protegido" onClose={onClose}>
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (pw) onConfirm(pw);
+        }}
+      >
+        <p className="text-sm text-slate-600">Este respaldo está cifrado. Escribe su contraseña para verlo y restaurarlo.</p>
+        <input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus />
+        {error && <p className="text-red-700">{error}</p>}
+        <div className="flex justify-end gap-3">
+          <button type="button" className="btn-ghost" onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="submit" className="btn-accent" disabled={!pw}>
+            Continuar
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export default function Settings({ businessName }: { businessName: string }) {
   const qc = useQueryClient();
   const info = useQuery({ queryKey: ["app-info"], queryFn: backupApi.info });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [restore, setRestore] = useState<{ path: string; manifest: BackupManifest } | null>(null);
+  const [restore, setRestore] = useState<{ path: string; manifest: BackupManifest; password: string | null } | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [asking, setAsking] = useState<{ path: string; error: string | null } | null>(null);
 
   async function guard(fn: () => Promise<void>) {
     setBusy(true);
@@ -120,12 +193,15 @@ export default function Settings({ businessName }: { businessName: string }) {
     }
   }
 
-  const exportBackup = () =>
+  const exportBackup = (password: string | null) =>
     guard(async () => {
       const path = await save({ defaultPath: `mibodega-${stamp()}.${EXT}`, filters: [{ name: "Respaldo Mi Bodega", extensions: [EXT] }] });
       if (!path) return;
-      const m = await backupApi.exportBackup(path);
-      setMsg({ ok: true, text: `Respaldo guardado en ${path} (${m.tables.products?.rows ?? 0} productos, ${m.tables.sales?.rows ?? 0} ventas).` });
+      const m = await backupApi.exportBackup(path, password);
+      setMsg({
+        ok: true,
+        text: `Respaldo ${password ? "cifrado " : ""}guardado en ${path} (${m.tables.products?.rows ?? 0} productos, ${m.tables.sales?.rows ?? 0} ventas).`,
+      });
       qc.invalidateQueries({ queryKey: ["app-info"] });
     });
 
@@ -141,8 +217,25 @@ export default function Settings({ businessName }: { businessName: string }) {
     guard(async () => {
       const picked = await open({ multiple: false, filters: [{ name: "Respaldo Mi Bodega", extensions: [EXT] }] });
       if (!picked || Array.isArray(picked)) return;
-      const manifest = await backupApi.inspect(picked); // valida sin tocar nada
-      setRestore({ path: picked, manifest });
+      try {
+        const manifest = await backupApi.inspect(picked); // valida sin tocar nada
+        setRestore({ path: picked, manifest, password: null });
+      } catch (e) {
+        if (errorCode(e) === "PASSWORD_REQUIRED") setAsking({ path: picked, error: null });
+        else throw e;
+      }
+    });
+
+  const submitPassword = (pw: string) =>
+    guard(async () => {
+      if (!asking) return;
+      try {
+        const manifest = await backupApi.inspect(asking.path, pw);
+        setRestore({ path: asking.path, manifest, password: pw });
+        setAsking(null);
+      } catch (e) {
+        setAsking({ path: asking.path, error: errorMessage(e) });
+      }
     });
 
   const d = info.data;
@@ -154,13 +247,13 @@ export default function Settings({ businessName }: { businessName: string }) {
         <h2 className="mb-3 font-bold text-brand">Respaldo de datos</h2>
         <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
           Tus datos viven solo en este equipo. Si el equipo falla o se reinstala sin respaldo, <b>se pierden</b>. Haz un respaldo seguido y guárdalo
-          fuera del equipo (USB o nube). El archivo contiene información comercial: cuídalo.
+          fuera del equipo (USB o nube). El archivo contiene información comercial: protégelo con contraseña.
         </p>
         <p className="mb-4 text-sm text-slate-600">
           Último respaldo: <b>{d?.last_backup_at ? formatDateTime(d.last_backup_at) : "nunca"}</b>
         </p>
         <div className="flex flex-wrap gap-3">
-          <button className="btn-accent" disabled={busy} onClick={exportBackup}>
+          <button className="btn-accent" disabled={busy} onClick={() => setExporting(true)}>
             ⬇ Exportar respaldo
           </button>
           <button className="btn-ghost" disabled={busy} onClick={pickRestore}>
@@ -192,7 +285,17 @@ export default function Settings({ businessName }: { businessName: string }) {
         </dl>
       </section>
 
-      {restore && <RestoreDialog path={restore.path} manifest={restore.manifest} onClose={() => setRestore(null)} />}
+      {exporting && (
+        <ExportDialog
+          onClose={() => setExporting(false)}
+          onConfirm={(pw) => {
+            setExporting(false);
+            exportBackup(pw);
+          }}
+        />
+      )}
+      {asking && <PasswordPrompt error={asking.error} onClose={() => setAsking(null)} onConfirm={submitPassword} />}
+      {restore && <RestoreDialog path={restore.path} manifest={restore.manifest} password={restore.password} onClose={() => setRestore(null)} />}
     </div>
   );
 }
