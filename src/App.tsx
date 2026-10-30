@@ -6,6 +6,7 @@ import Categories from "./pages/Categories";
 import Inventory from "./pages/Inventory";
 import Placeholder from "./pages/Placeholder";
 import Products from "./pages/Products";
+import Purchases from "./pages/Purchases";
 import Setup from "./pages/Setup";
 
 export default function App() {
@@ -24,7 +25,7 @@ export default function App() {
         <Route path="productos" element={<Products />} />
         <Route path="categorias" element={<Categories />} />
         <Route path="inventario" element={<Inventory />} />
-        <Route path="compras" element={<Placeholder title="Compras / Proveedores" />} />
+        <Route path="compras" element={<Purchases />} />
         <Route path="caja" element={<Placeholder title="Caja" />} />
         <Route path="reportes" element={<Placeholder title="Reportes" />} />
         <Route path="configuracion" element={<Placeholder title="Configuración / Respaldo" />} />

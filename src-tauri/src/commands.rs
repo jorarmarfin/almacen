@@ -8,6 +8,7 @@ use tokio::sync::RwLock;
 use crate::config::{DbConfig, Engine};
 use crate::catalog::{self, Category, ImportReport, Product, ProductFilter, ProductInput};
 use crate::inventory::{self, AdjustKind, Movement};
+use crate::purchases::{self, PurchaseDetail, PurchaseInput, PurchaseSummary, Supplier, SupplierInput};
 use crate::db::{test_connection, Db, SCHEMA_VERSION};
 use crate::error::{AppError, AppResult};
 
@@ -210,6 +211,46 @@ pub async fn get_kardex(
 #[tauri::command]
 pub async fn check_stock_integrity(state: State<'_, AppState>) -> AppResult<Vec<String>> {
     Ok(inventory::stock_divergences(&state.db().await?.pool).await?.into_iter().map(|d| d.0).collect())
+}
+
+#[tauri::command]
+pub async fn list_suppliers(state: State<'_, AppState>) -> AppResult<Vec<Supplier>> {
+    purchases::list_suppliers(&state.db().await?.pool).await
+}
+
+#[tauri::command]
+pub async fn save_supplier(state: State<'_, AppState>, input: SupplierInput) -> AppResult<String> {
+    purchases::save_supplier(&state.db().await?.pool, &input).await
+}
+
+#[tauri::command]
+pub async fn delete_supplier(state: State<'_, AppState>, id: String) -> AppResult<()> {
+    purchases::delete_supplier(&state.db().await?.pool, &id).await
+}
+
+#[tauri::command]
+pub async fn list_purchases(state: State<'_, AppState>, status: Option<String>) -> AppResult<Vec<PurchaseSummary>> {
+    purchases::list_purchases(&state.db().await?.pool, status.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn get_purchase(state: State<'_, AppState>, id: String) -> AppResult<PurchaseDetail> {
+    purchases::get_purchase(&state.db().await?.pool, &id).await
+}
+
+#[tauri::command]
+pub async fn save_purchase(state: State<'_, AppState>, input: PurchaseInput) -> AppResult<String> {
+    purchases::save_purchase(&state.db().await?.pool, &input).await
+}
+
+#[tauri::command]
+pub async fn confirm_purchase(state: State<'_, AppState>, id: String) -> AppResult<()> {
+    purchases::confirm_purchase(&state.db().await?.pool, &id).await
+}
+
+#[tauri::command]
+pub async fn cancel_purchase_draft(state: State<'_, AppState>, id: String) -> AppResult<()> {
+    purchases::cancel_draft(&state.db().await?.pool, &id).await
 }
 
 /// Arranque: carga config y abre la BD si ya existe configuración previa.

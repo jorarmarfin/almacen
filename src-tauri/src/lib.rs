@@ -5,10 +5,13 @@ mod db;
 mod domain;
 mod error;
 mod inventory;
+mod purchases;
 mod util;
 
 #[cfg(test)]
 mod phase2_tests;
+#[cfg(test)]
+mod phase3_tests;
 
 use tauri::Manager;
 
@@ -36,6 +39,14 @@ pub fn run() {
             commands::import_products_csv,
             commands::get_products_template,
             commands::write_text_file,
+            commands::list_suppliers,
+            commands::save_supplier,
+            commands::delete_supplier,
+            commands::list_purchases,
+            commands::get_purchase,
+            commands::save_purchase,
+            commands::confirm_purchase,
+            commands::cancel_purchase_draft,
             commands::adjust_stock,
             commands::get_kardex,
             commands::check_stock_integrity,

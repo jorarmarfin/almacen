@@ -138,3 +138,60 @@ export const catalogApi = {
     invoke<Movement[]>("get_kardex", { productId, from: from ?? null, to: to ?? null }),
   stockIntegrity: () => invoke<string[]>("check_stock_integrity"),
 };
+
+// ---------- Proveedores y compras ----------
+
+export interface Supplier {
+  id: string;
+  name: string;
+  tax_id: string | null;
+  phone: string | null;
+  notes: string | null;
+  active: boolean;
+}
+
+export type PurchaseStatus = "DRAFT" | "CONFIRMED" | "CANCELED";
+
+export interface PurchaseSummary {
+  id: string;
+  number: string;
+  supplier_id: string | null;
+  supplier_name: string | null;
+  status: PurchaseStatus;
+  purchased_at: string;
+  total_cents: number;
+}
+
+export interface PurchaseItemView {
+  id: string;
+  product_id: string;
+  product_name: string;
+  presentation_id: string;
+  presentation_name: string;
+  qty_presentations: number;
+  factor_snapshot: number;
+  unit_cost_cents: number;
+  total_cents: number;
+}
+
+export interface PurchaseDetail extends PurchaseSummary {
+  items: PurchaseItemView[];
+}
+
+export interface PurchaseInput {
+  id?: string | null;
+  supplier_id: string | null;
+  purchased_at?: string | null;
+  items: { product_id: string; presentation_id: string; qty_presentations: number; unit_cost_cents: number }[];
+}
+
+export const purchasesApi = {
+  suppliers: () => invoke<Supplier[]>("list_suppliers"),
+  saveSupplier: (input: Omit<Supplier, "id"> & { id?: string | null }) => invoke<string>("save_supplier", { input }),
+  deleteSupplier: (id: string) => invoke<void>("delete_supplier", { id }),
+  list: (status?: PurchaseStatus) => invoke<PurchaseSummary[]>("list_purchases", { status: status ?? null }),
+  get: (id: string) => invoke<PurchaseDetail>("get_purchase", { id }),
+  save: (input: PurchaseInput) => invoke<string>("save_purchase", { input }),
+  confirm: (id: string) => invoke<void>("confirm_purchase", { id }),
+  cancelDraft: (id: string) => invoke<void>("cancel_purchase_draft", { id }),
+};

@@ -21,7 +21,7 @@
 7. **Stock**: `stock_balances` materializado + kardex, actualizado en la misma transacción; test de invariante.
 
 ## Estado Actual
-- **Fase activa**: Fase 2 — Catálogo e inventario (EN PROGRESO); Fase 1 casi cerrada
+- **Fase activa**: Fase 3 — Proveedores y compras (EN PROGRESO, implementada; falta validación manual). Fases 1-2 implementadas
 - **Progreso**: 0 de 6 fases completadas
 - **Bloqueadores**: ninguno (alcance MySQL y backup para ambos motores confirmados)
 - **Próximo paso concreto (Fase 2)**: probar Productos/Inventario en la app (`./scripts/run.sh`, importar `examples/productos.csv`), pulir UX y cerrar fase. Pendientes Fase 1 (no bloquean): tipos TS autogenerados, ADR, seed, keyring. _Anterior:_ lanzar `pnpm tauri dev` y probar Setup (SQLite y MySQL); luego generación de tipos TS (ts-rs/specta), trait de repos y seed; validar CI en GitHub (build Windows).
@@ -122,7 +122,7 @@
 
 ---
 
-## Fase 3: Proveedores y compras — PENDIENTE
+## Fase 3: Proveedores y compras — EN PROGRESO
 
 **Duración estimada**: 3 días
 **Objetivo**: RF-03. Recepción de mercadería que incrementa stock una sola vez y actualiza costo de referencia.
@@ -134,19 +134,19 @@
 ### Entregables (Definición de Done)
 
 #### Backend
-- [ ] CRUD proveedores
-- [ ] Compra: borrador → confirmada; numeración transaccional `C-000001`
-- [ ] Confirmación idempotente: movimientos COMPRA, `factor_snapshot`, último costo → `reference_cost_cents`
-- [ ] Compra confirmada inmutable (sin edición)
+- [x] CRUD proveedores
+- [x] Compra: borrador → confirmada; numeración transaccional `C-000001`
+- [x] Confirmación idempotente: movimientos COMPRA, `factor_snapshot`, último costo → `reference_cost_cents`
+- [x] Compra confirmada inmutable (sin edición)
 
 #### Frontend
-- [ ] Proveedores (lista/form)
-- [ ] Compra nueva (líneas con presentación, costo, total), historial y detalle
+- [x] Proveedores (lista/form)
+- [x] Compra nueva (líneas con presentación, costo, total), historial y detalle
 
 #### Tests
-- [ ] Caja de 24 comprada → stock +24 (prueba spec #1 parte 1)
-- [ ] Doble confirmación → una sola entrada
-- [ ] Cambio de costo no reescribe histórico
+- [x] Caja de 24 comprada → stock +24 (prueba spec #1 parte 1)
+- [x] Doble confirmación → una sola entrada
+- [x] Cambio de costo no reescribe histórico
 
 #### Documentación
 - [ ] Flujo C en guía de usuario (borrador)
@@ -155,7 +155,9 @@
 - Numeración concurrente en MySQL → contador en tabla con `SELECT ... FOR UPDATE`; en SQLite tx inmediata.
 
 ### Notas de avance
--
+- 2026-10-30: `purchases.rs` (proveedores + compras). Numeración `C-000001` por contador al crear el borrador (los descartados dejan hueco). Confirmación con `UPDATE ... WHERE status='DRAFT'` (una sola gana) + `apply_movement` COMPRA por línea + costo de referencia = costo de línea / factor, redondeo half-up en enteros (`cost_per_base_unit`).
+- Decisiones: borrador → confirmada; descartar borrador = CANCELED; anulación de compra confirmada pospuesta (el spec lo permite; corregir con ajuste). Proveedor con compras solo se desactiva.
+- Tests `phase3_tests` pasan en SQLite y MySQL 8.4. UI en Compras/Proveedores (tabs). Falta validación manual en pantalla.
 
 ---
 
@@ -306,6 +308,7 @@
 6. Rendimiento del flujo de venta → índices y búsqueda en Rust, no filtrar en React.
 
 ## Historial de Cambios
+- 2026-10-30: Fase 3 implementada (proveedores, compras, confirmación idempotente); plantilla CSV de productos y CRUD de categorías añadidos a Fase 2.
 - 2026-10-30: Fase 2 implementada (backend probado en ambos motores + UI); pendiente validación manual.
 - 2026-10-30: Fase 1 en progreso (base técnica, migraciones duales, setup UI, CI).
 - 2026-10-30: Confirmado alcance MySQL; backup in-app ahora cubre SQLite y MySQL (formato agnóstico).
