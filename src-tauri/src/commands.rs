@@ -9,6 +9,8 @@ use crate::config::{DbConfig, Engine};
 use crate::catalog::{self, Category, ImportReport, Product, ProductFilter, ProductInput};
 use crate::inventory::{self, AdjustKind, Movement};
 use crate::purchases::{self, PurchaseDetail, PurchaseInput, PurchaseSummary, Supplier, SupplierInput};
+use crate::cash::{self, CashSession};
+use crate::sales::{self, SaleDetail, SaleInput, SaleSummary};
 use crate::db::{test_connection, Db, SCHEMA_VERSION};
 use crate::error::{AppError, AppResult};
 
@@ -251,6 +253,41 @@ pub async fn confirm_purchase(state: State<'_, AppState>, id: String) -> AppResu
 #[tauri::command]
 pub async fn cancel_purchase_draft(state: State<'_, AppState>, id: String) -> AppResult<()> {
     purchases::cancel_draft(&state.db().await?.pool, &id).await
+}
+
+#[tauri::command]
+pub async fn current_cash(state: State<'_, AppState>) -> AppResult<Option<CashSession>> {
+    cash::current_session(&state.db().await?.pool).await
+}
+
+#[tauri::command]
+pub async fn open_cash(state: State<'_, AppState>, opening_cash_cents: i64) -> AppResult<String> {
+    cash::open_cash(&state.db().await?.pool, opening_cash_cents).await
+}
+
+#[tauri::command]
+pub async fn confirm_sale(state: State<'_, AppState>, input: SaleInput) -> AppResult<SaleDetail> {
+    sales::confirm_sale(&state.db().await?.pool, &input).await
+}
+
+#[tauri::command]
+pub async fn cancel_sale(state: State<'_, AppState>, id: String, reason: String) -> AppResult<SaleDetail> {
+    sales::cancel_sale(&state.db().await?.pool, &id, &reason).await
+}
+
+#[tauri::command]
+pub async fn list_sales(
+    state: State<'_, AppState>,
+    from: Option<String>,
+    to: Option<String>,
+    status: Option<String>,
+) -> AppResult<Vec<SaleSummary>> {
+    sales::list_sales(&state.db().await?.pool, from.as_deref(), to.as_deref(), status.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn get_sale(state: State<'_, AppState>, id: String) -> AppResult<SaleDetail> {
+    sales::get_sale(&state.db().await?.pool, &id).await
 }
 
 /// Arranque: carga config y abre la BD si ya existe configuración previa.

@@ -1,3 +1,4 @@
+mod cash;
 mod catalog;
 mod commands;
 mod config;
@@ -6,12 +7,15 @@ mod domain;
 mod error;
 mod inventory;
 mod purchases;
+mod sales;
 mod util;
 
 #[cfg(test)]
 mod phase2_tests;
 #[cfg(test)]
 mod phase3_tests;
+#[cfg(test)]
+mod phase4_tests;
 
 use tauri::Manager;
 
@@ -47,6 +51,12 @@ pub fn run() {
             commands::save_purchase,
             commands::confirm_purchase,
             commands::cancel_purchase_draft,
+            commands::current_cash,
+            commands::open_cash,
+            commands::confirm_sale,
+            commands::cancel_sale,
+            commands::list_sales,
+            commands::get_sale,
             commands::adjust_stock,
             commands::get_kardex,
             commands::check_stock_integrity,
