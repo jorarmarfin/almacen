@@ -9,6 +9,7 @@ use crate::config::{DbConfig, Engine};
 use crate::catalog::{self, Category, ImportReport, Product, ProductFilter, ProductInput};
 use crate::inventory::{self, AdjustKind, Movement};
 use crate::purchases::{self, PurchaseDetail, PurchaseInput, PurchaseSummary, Supplier, SupplierInput};
+use crate::backup::{self, Manifest, RestoreReport};
 use crate::cash::{self, CashSession, ManualKind, SessionDetail, SessionRow};
 use crate::reports::{self, Dashboard, SalesReport, TopMetric, TopProduct};
 use crate::sales::{self, SaleDetail, SaleInput, SaleSummary};
@@ -348,6 +349,59 @@ pub async fn export_csv(state: State<'_, AppState>, kind: String, from: String, 
         "sales" => reports::export_sales_csv(&pool, &from, &to).await,
         other => Err(AppError::Validation(format!("exportación desconocida: {other}"))),
     }
+}
+
+#[derive(Serialize)]
+pub struct AppInfo {
+    pub version: String,
+    pub data_dir: String,
+    pub engine: Engine,
+    pub last_backup_at: Option<String>,
+}
+
+#[tauri::command]
+pub async fn get_app_info(app: AppHandle, state: State<'_, AppState>) -> AppResult<AppInfo> {
+    let engine = state.config.read().await.engine;
+    let last = match state.db.read().await.clone() {
+        Some(db) => sqlx::query_scalar::<_, Option<String>>("SELECT backup_info FROM app_metadata WHERE id = 1")
+            .fetch_optional(&db.pool)
+            .await?
+            .flatten()
+            .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+            .and_then(|v| v["last_export_at"].as_str().map(str::to_string)),
+        None => None,
+    };
+    Ok(AppInfo {
+        version: app.package_info().version.to_string(),
+        data_dir: state.data_dir.display().to_string(),
+        engine,
+        last_backup_at: last,
+    })
+}
+
+#[tauri::command]
+pub async fn export_backup(state: State<'_, AppState>, path: String) -> AppResult<Manifest> {
+    let db = state.db().await?;
+    backup::export_backup(&db.pool, db.engine, std::path::Path::new(&path)).await
+}
+
+#[tauri::command]
+pub async fn export_sqlite_native(state: State<'_, AppState>, path: String) -> AppResult<()> {
+    let db = state.db().await?;
+    backup::export_sqlite_native(&db.pool, db.engine, std::path::Path::new(&path)).await
+}
+
+/// Valida un respaldo y devuelve su manifiesto sin modificar nada.
+#[tauri::command]
+pub fn inspect_backup(path: String) -> AppResult<Manifest> {
+    backup::inspect_backup(std::path::Path::new(&path))
+}
+
+#[tauri::command]
+pub async fn restore_backup(state: State<'_, AppState>, path: String) -> AppResult<RestoreReport> {
+    let db = state.db().await?;
+    let pre_dir = state.data_dir.join("backups");
+    backup::restore_backup(&db.pool, db.engine, std::path::Path::new(&path), &pre_dir).await
 }
 
 /// Arranque: carga config y abre la BD si ya existe configuración previa.

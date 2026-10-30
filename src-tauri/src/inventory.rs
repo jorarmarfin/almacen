@@ -171,3 +171,20 @@ pub async fn stock_divergences(pool: &AnyPool) -> AppResult<Vec<(String, i64, i6
         .filter(|(_, b, s)| b != s)
         .collect())
 }
+
+/// Igual que `stock_divergences` pero sobre una conexión/transacción ya abierta
+/// (con el pool de 1 conexión de SQLite no se puede usar el pool dentro de una tx).
+pub async fn stock_divergences_conn(conn: &mut AnyConnection) -> AppResult<Vec<String>> {
+    let rows = sqlx::query(
+        "SELECT b.product_id AS product_id, b.qty_base AS balance, \
+         CAST(COALESCE((SELECT SUM(m.qty_base_signed) FROM stock_movements m WHERE m.product_id = b.product_id), 0) AS SIGNED) AS summed \
+         FROM stock_balances b",
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .filter(|r| r.get::<i64, _>("balance") != r.get::<i64, _>("summed"))
+        .map(|r| r.get::<String, _>("product_id"))
+        .collect())
+}

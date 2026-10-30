@@ -1,3 +1,4 @@
+mod backup;
 mod cash;
 mod catalog;
 mod commands;
@@ -19,6 +20,8 @@ mod phase3_tests;
 mod phase4_tests;
 #[cfg(test)]
 mod phase5_tests;
+#[cfg(test)]
+mod phase6_tests;
 
 use tauri::Manager;
 
@@ -64,6 +67,11 @@ pub fn run() {
             commands::sales_report,
             commands::top_products,
             commands::export_csv,
+            commands::get_app_info,
+            commands::export_backup,
+            commands::export_sqlite_native,
+            commands::inspect_backup,
+            commands::restore_backup,
             commands::confirm_sale,
             commands::cancel_sale,
             commands::list_sales,
