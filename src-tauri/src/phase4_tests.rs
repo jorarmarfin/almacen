@@ -191,3 +191,40 @@ async fn phase4_mysql() {
         None => eprintln!("MYSQL_TEST_URL no definida: se omite"),
     }
 }
+
+/// Rendimiento (spec §3): buscar para agregar al carrito debe responder en < 1 s con catálogo grande.
+#[tokio::test]
+async fn search_is_fast_with_5k_products() {
+    let db = sqlite_mem().await;
+    let mut tx = db.pool.begin().await.unwrap();
+    for i in 0..5000 {
+        save_product_tx(
+            &mut tx,
+            &ProductInput {
+                id: None,
+                category_id: None,
+                sku: Some(format!("SKU-{i:05}")),
+                barcode: Some(format!("77{i:08}")),
+                name: format!("Producto de prueba {i}"),
+                base_unit: "unidad".into(),
+                reference_cost_cents: 100,
+                min_stock: Some(1),
+                presentations: vec![
+                    PresentationInput { id: None, name: "Unidad".into(), factor_to_base: 1, sale_price_cents: 200 },
+                    PresentationInput { id: None, name: "Caja x12".into(), factor_to_base: 12, sale_price_cents: 2000 },
+                ],
+            },
+        )
+        .await
+        .unwrap();
+    }
+    tx.commit().await.unwrap();
+    let t = std::time::Instant::now();
+    let r = list_products(&db.pool, &ProductFilter { search: Some("prueba 4999".into()), ..Default::default() }).await.unwrap();
+    let by_barcode = list_products(&db.pool, &ProductFilter { search: Some("770000123".into()), ..Default::default() }).await.unwrap();
+    let elapsed = t.elapsed();
+    assert_eq!(r.len(), 1);
+    assert!(!by_barcode.is_empty());
+    eprintln!("búsqueda con 5000 productos: {elapsed:?}");
+    assert!(elapsed.as_millis() < 1000, "demasiado lento: {elapsed:?}");
+}

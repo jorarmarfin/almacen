@@ -7,6 +7,8 @@ import Inventory from "./pages/Inventory";
 import Placeholder from "./pages/Placeholder";
 import Products from "./pages/Products";
 import Purchases from "./pages/Purchases";
+import Sell from "./pages/Sell";
+import SalesHistory from "./pages/SalesHistory";
 import Setup from "./pages/Setup";
 
 export default function App() {
@@ -21,7 +23,8 @@ export default function App() {
     <Routes>
       <Route element={<Layout businessName={name} engine={boot.data.engine} />}>
         <Route index element={<Placeholder title="Inicio" />} />
-        <Route path="vender" element={<Placeholder title="Vender" />} />
+        <Route path="vender" element={<Sell businessName={name} />} />
+        <Route path="ventas" element={<SalesHistory businessName={name} />} />
         <Route path="productos" element={<Products />} />
         <Route path="categorias" element={<Categories />} />
         <Route path="inventario" element={<Inventory />} />

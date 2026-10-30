@@ -21,7 +21,7 @@
 7. **Stock**: `stock_balances` materializado + kardex, actualizado en la misma transacción; test de invariante.
 
 ## Estado Actual
-- **Fase activa**: Fase 3 — Proveedores y compras (EN PROGRESO, implementada; falta validación manual). Fases 1-2 implementadas
+- **Fase activa**: Fase 4 — Ventas y cobros (EN PROGRESO, implementada; falta validación manual). Fases 1-3 implementadas, pendientes de validar en pantalla
 - **Progreso**: 0 de 6 fases completadas
 - **Bloqueadores**: ninguno (alcance MySQL y backup para ambos motores confirmados)
 - **Próximo paso concreto (Fase 2)**: probar Productos/Inventario en la app (`./scripts/run.sh`, importar `examples/productos.csv`), pulir UX y cerrar fase. Pendientes Fase 1 (no bloquean): tipos TS autogenerados, ADR, seed, keyring. _Anterior:_ lanzar `pnpm tauri dev` y probar Setup (SQLite y MySQL); luego generación de tipos TS (ts-rs/specta), trait de repos y seed; validar CI en GitHub (build Windows).
@@ -161,7 +161,7 @@
 
 ---
 
-## Fase 4: Ventas y cobros — PENDIENTE
+## Fase 4: Ventas y cobros — EN PROGRESO
 
 **Duración estimada**: 5 días
 **Objetivo**: RF-04. Vender en segundos: carrito, descuentos, pagos mixtos, vuelto, anulación, comprobante interno.
@@ -173,33 +173,40 @@
 ### Entregables (Definición de Done)
 
 #### Backend
-- [ ] `confirm_sale` atómico: cabecera, líneas (snapshots precio/factor/costo), pagos, stock, movimiento de efectivo
-- [ ] Validaciones: stock suficiente (RN-04), pagos cuadran (RN-06), descuento no negativo, caja abierta
-- [ ] Idempotencia por `client_request_id` único (RN-05)
-- [ ] Métodos EFECTIVO/YAPE/PLIN/OTRO; vuelto solo en efectivo
-- [ ] Anulación: movimientos inversos exactamente una vez, motivo, respeta caja cerrada (RN-11)
-- [ ] Numeración `V-000001`
+- [x] `confirm_sale` atómico: cabecera, líneas (snapshots precio/factor/costo), pagos, stock, movimiento de efectivo
+- [x] Validaciones: stock suficiente (RN-04), pagos cuadran (RN-06), descuento no negativo, caja abierta
+- [x] Idempotencia por `client_request_id` único (RN-05)
+- [x] Métodos EFECTIVO/YAPE/PLIN/OTRO; vuelto solo en efectivo
+- [x] Anulación: movimientos inversos exactamente una vez, motivo, respeta caja cerrada (RN-11)
+- [x] Numeración `V-000001`
 
 #### Frontend
-- [ ] Vender: buscador con foco permanente, captura de lector de código, carrito, selector de presentación, atajos (F-keys/Enter)
-- [ ] Modal de pago (mixto + vuelto), botón de confirmar bloqueado tras clic
-- [ ] Venta realizada + ticket interno imprimible (HTML/PDF vía print)
-- [ ] Historial de ventas con filtros, detalle y anulación
+- [x] Vender: buscador con foco permanente, captura de lector de código, carrito, selector de presentación, atajos (F-keys/Enter)
+- [x] Modal de pago (mixto + vuelto), botón de confirmar bloqueado tras clic
+- [x] Venta realizada + ticket interno imprimible (HTML/PDF vía print)
+- [x] Historial de ventas con filtros, detalle y anulación
 
 #### Tests
-- [ ] Spec #1-#5, #7, #8, #12 automatizados
-- [ ] Error simulado en medio de venta → rollback total
-- [ ] Rendimiento: agregar al carrito < 1 s con 5k productos
+- [x] Spec #1-#5, #7, #8, #12 automatizados
+- [x] Error simulado en medio de venta → rollback total
+- [x] Rendimiento: agregar al carrito < 1 s con 5k productos
 
 #### Documentación
-- [ ] Atajos de teclado y flujo B
+- [ ] Atajos de teclado y flujo B (guía de usuario)
 
 ### Posibles obstáculos
 - Doble toque → bloqueo UI + idempotencia en BD.
 - Redondeo de descuentos por línea → reglas explícitas en enteros, tests de borde.
 
 ### Notas de avance
--
+- 2026-10-30: `sales.rs` + `cash.rs` (caja mínima: abrir, saldo esperado, movimientos; cierre y movimientos manuales quedan para Fase 5). Precio/factor/costo se leen de la BD al confirmar (la UI no dicta precios).
+- Idempotencia: `client_request_id` UNIQUE + chequeo previo; repetir devuelve la misma venta. La UI conserva la clave si falla (reintento seguro) y genera otra al completar.
+- Pagos: `amount_cents` = neto asignado; `received/change` solo efectivo. Solo EFECTIVO crea `cash_movements`; Yape/Plin quedan en `sale_payments` para reportes. Anulación revierte solo efectivo en la caja abierta actual (RN-11) y exige caja abierta si hubo efectivo.
+- Descuentos: por línea (`sale_items.discount_cents`) y total (`sales.discount_cents`); subtotal = suma de líneas netas. Margen (Fase 5) usará `line_total` sin prorratear el descuento total.
+- Rendimiento: búsqueda con 5.000 productos ≈ 17 ms (se acotó la carga de presentaciones a los productos devueltos).
+- Tests `phase4_tests` en SQLite y MySQL 8.4: spec #1-#5, #7, #8, #12 + descuentos, producto inactivo, rollback multilínea.
+- UI: Vender (búsqueda/lector + Enter, carrito, F2/F9, cobro mixto con vuelto y billetes rápidos, ticket interno imprimible) e Historial de ventas con anulación.
+- Pendiente: validación manual en pantalla; impresión usa `window.print()` (revisar en Windows).
 
 ---
 
@@ -308,6 +315,7 @@
 6. Rendimiento del flujo de venta → índices y búsqueda en Rust, no filtrar en React.
 
 ## Historial de Cambios
+- 2026-10-30: Fase 4 implementada (ventas, pagos mixtos, anulación, ticket interno, historial).
 - 2026-10-30: Fase 3 implementada (proveedores, compras, confirmación idempotente); plantilla CSV de productos y CRUD de categorías añadidos a Fase 2.
 - 2026-10-30: Fase 2 implementada (backend probado en ambos motores + UI); pendiente validación manual.
 - 2026-10-30: Fase 1 en progreso (base técnica, migraciones duales, setup UI, CI).

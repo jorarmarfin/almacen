@@ -5,6 +5,7 @@ import type { Engine } from "../lib/api";
 const links = [
   ["/", "Inicio"],
   ["/vender", "Vender"],
+  ["/ventas", "Historial de ventas"],
   ["/productos", "Productos"],
   ["/categorias", "Categorías"],
   ["/inventario", "Inventario"],

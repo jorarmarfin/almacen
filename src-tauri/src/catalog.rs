@@ -422,12 +422,21 @@ pub async fn list_products(pool: &AnyPool, f: &ProductFilter) -> AppResult<Vec<P
     }
     let rows = q.fetch_all(pool).await?;
 
-    let pres_rows = sqlx::query(
-        "SELECT id, product_id, name, factor_to_base, sale_price_cents, active \
-         FROM product_presentations ORDER BY factor_to_base, name",
-    )
-    .fetch_all(pool)
-    .await?;
+    // Solo las presentaciones de los productos devueltos (máx. 1000 por el LIMIT).
+    let ids: Vec<String> = rows.iter().map(|r| r.get::<String, _>("id")).collect();
+    let mut pres_rows = Vec::new();
+    for chunk in ids.chunks(500) {
+        let marks = vec!["?"; chunk.len()].join(",");
+        // Solo se concatenan marcadores `?`; los ids van como parámetros.
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(format!(
+            "SELECT id, product_id, name, factor_to_base, sale_price_cents, active \
+             FROM product_presentations WHERE product_id IN ({marks}) ORDER BY factor_to_base, name"
+        )));
+        for id in chunk {
+            q = q.bind(id.clone());
+        }
+        pres_rows.extend(q.fetch_all(pool).await?);
+    }
     let mut by_product: std::collections::HashMap<String, Vec<Presentation>> = Default::default();
     for r in pres_rows {
         by_product.entry(r.get("product_id")).or_default().push(Presentation {

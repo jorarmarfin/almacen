@@ -195,3 +195,63 @@ export const purchasesApi = {
   confirm: (id: string) => invoke<void>("confirm_purchase", { id }),
   cancelDraft: (id: string) => invoke<void>("cancel_purchase_draft", { id }),
 };
+
+// ---------- Caja y ventas ----------
+
+export interface CashSession {
+  id: string;
+  opened_at: string;
+  opening_cash_cents: number;
+  status: string;
+  expected_cash_cents: number;
+}
+
+export type PayMethod = "EFECTIVO" | "YAPE" | "PLIN" | "OTRO";
+
+export interface SaleInput {
+  client_request_id: string;
+  discount_cents: number;
+  items: { product_id: string; presentation_id: string; qty_presentations: number; discount_cents: number }[];
+  payments: { method: PayMethod; amount_cents: number; received_cents: number | null; reference: string | null }[];
+}
+
+export interface SaleSummary {
+  id: string;
+  number: string;
+  status: "CONFIRMED" | "CANCELED";
+  sold_at: string;
+  subtotal_cents: number;
+  discount_cents: number;
+  total_cents: number;
+  canceled_at: string | null;
+  cancel_reason: string | null;
+}
+
+export interface SaleDetail extends SaleSummary {
+  items: {
+    product_name: string;
+    presentation_name: string;
+    qty_presentations: number;
+    factor_snapshot: number;
+    unit_price_cents: number;
+    discount_cents: number;
+    line_total_cents: number;
+  }[];
+  payments: {
+    method: PayMethod;
+    amount_cents: number;
+    received_cents: number | null;
+    change_cents: number | null;
+    reference: string | null;
+  }[];
+}
+
+export const salesApi = {
+  currentCash: () => invoke<CashSession | null>("current_cash"),
+  openCash: (openingCashCents: number) => invoke<string>("open_cash", { openingCashCents }),
+  confirm: (input: SaleInput) => invoke<SaleDetail>("confirm_sale", { input }),
+  cancel: (id: string, reason: string) => invoke<SaleDetail>("cancel_sale", { id, reason }),
+  list: (from?: string, to?: string, status?: string) =>
+    invoke<SaleSummary[]>("list_sales", { from: from ?? null, to: to ?? null, status: status ?? null }),
+  get: (id: string) => invoke<SaleDetail>("get_sale", { id }),
+};

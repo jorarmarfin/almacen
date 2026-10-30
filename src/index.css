@@ -31,3 +31,22 @@ body {
 @utility label {
   @apply mb-1 block text-sm font-medium text-slate-700;
 }
+
+/* Ticket interno: al imprimir solo se ve el comprobante */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .ticket,
+  .ticket * {
+    visibility: visible;
+  }
+  .ticket {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    padding: 4mm;
+    font-size: 11px;
+  }
+}
