@@ -9,7 +9,8 @@ use crate::config::{DbConfig, Engine};
 use crate::catalog::{self, Category, ImportReport, Product, ProductFilter, ProductInput};
 use crate::inventory::{self, AdjustKind, Movement};
 use crate::purchases::{self, PurchaseDetail, PurchaseInput, PurchaseSummary, Supplier, SupplierInput};
-use crate::cash::{self, CashSession};
+use crate::cash::{self, CashSession, ManualKind, SessionDetail, SessionRow};
+use crate::reports::{self, Dashboard, SalesReport, TopMetric, TopProduct};
 use crate::sales::{self, SaleDetail, SaleInput, SaleSummary};
 use crate::db::{test_connection, Db, SCHEMA_VERSION};
 use crate::error::{AppError, AppResult};
@@ -288,6 +289,65 @@ pub async fn list_sales(
 #[tauri::command]
 pub async fn get_sale(state: State<'_, AppState>, id: String) -> AppResult<SaleDetail> {
     sales::get_sale(&state.db().await?.pool, &id).await
+}
+
+#[tauri::command]
+pub async fn add_cash_movement(
+    state: State<'_, AppState>,
+    kind: ManualKind,
+    method: String,
+    amount_cents: i64,
+    concept: String,
+) -> AppResult<()> {
+    cash::add_manual_movement(&state.db().await?.pool, kind, &method, amount_cents, &concept).await
+}
+
+#[tauri::command]
+pub async fn close_cash(state: State<'_, AppState>, counted_cents: i64, note: Option<String>) -> AppResult<String> {
+    cash::close_cash(&state.db().await?.pool, counted_cents, note.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn list_cash_sessions(state: State<'_, AppState>) -> AppResult<Vec<SessionRow>> {
+    cash::list_sessions(&state.db().await?.pool).await
+}
+
+#[tauri::command]
+pub async fn get_cash_session(state: State<'_, AppState>, id: String) -> AppResult<SessionDetail> {
+    cash::session_detail(&state.db().await?.pool, &id).await
+}
+
+#[tauri::command]
+pub async fn dashboard(state: State<'_, AppState>, from: String, to: String) -> AppResult<Dashboard> {
+    reports::dashboard(&state.db().await?.pool, &from, &to).await
+}
+
+#[tauri::command]
+pub async fn sales_report(state: State<'_, AppState>, from: String, to: String) -> AppResult<SalesReport> {
+    reports::sales_report(&state.db().await?.pool, &from, &to).await
+}
+
+#[tauri::command]
+pub async fn top_products(
+    state: State<'_, AppState>,
+    from: String,
+    to: String,
+    metric: TopMetric,
+    limit: i64,
+) -> AppResult<Vec<TopProduct>> {
+    reports::top_products(&state.db().await?.pool, &from, &to, metric, limit).await
+}
+
+/// `kind`: products | kardex | sales. Devuelve el CSV como texto para guardarlo con el diálogo nativo.
+#[tauri::command]
+pub async fn export_csv(state: State<'_, AppState>, kind: String, from: String, to: String) -> AppResult<String> {
+    let pool = state.db().await?.pool;
+    match kind.as_str() {
+        "products" => reports::export_products_csv(&pool).await,
+        "kardex" => reports::export_kardex_csv(&pool, &from, &to).await,
+        "sales" => reports::export_sales_csv(&pool, &from, &to).await,
+        other => Err(AppError::Validation(format!("exportación desconocida: {other}"))),
+    }
 }
 
 /// Arranque: carga config y abre la BD si ya existe configuración previa.
