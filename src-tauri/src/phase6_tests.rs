@@ -376,3 +376,57 @@ async fn upgrade_mysql() {
     sqlx::query("SET FOREIGN_KEY_CHECKS = 1").execute(&db.pool).await.unwrap();
     upgrade_keeps_data(&db, sqlx::migrate!("./migrations/mysql"), sqlx::migrate!("./migrations/mysql")).await;
 }
+
+/// Respaldo cifrado: el contenido no es legible, exige contraseña y restaura con la correcta.
+async fn encrypted_backup(db: &Db) {
+    use crate::error::AppError;
+    let dir = tmp_dir();
+    populate(&db.pool).await;
+    let plain = export_to(db, &dir, "plain.mibodega-backup").await;
+    let snap = snapshot(&plain);
+
+    let enc = dir.join("enc.mibodega-backup");
+    export_backup_pw(&db.pool, db.engine, &enc, Some("clave-123")).await.unwrap();
+    let raw = std::fs::read(&enc).unwrap();
+    let contains = |hay: &[u8], needle: &[u8]| hay.windows(needle.len()).any(|w| w == needle);
+    assert!(!contains(&raw, b"business_name") && !contains(&raw, "Bodega".as_bytes()) && !contains(&raw, b"Gaseosa"), "nada legible en claro");
+
+    assert!(matches!(inspect_backup(&enc), Err(AppError::PasswordRequired)));
+    assert!(inspect_backup_pw(&enc, Some("mala")).is_err());
+    let m = inspect_backup_pw(&enc, Some("clave-123")).unwrap();
+    assert_eq!(m.business_name.as_deref(), Some("Bodega Ñandú"));
+
+    // Sin contraseña / con contraseña mala: no se modifica la BD
+    adjust_stock(&db.pool, &list_products(&db.pool, &ProductFilter::default()).await.unwrap()[0].id, AdjustKind::Entrada, 7, "x").await.unwrap();
+    let changed = snapshot(&export_to(db, &dir, "changed.mibodega-backup").await);
+    assert!(matches!(
+        restore_backup_pw(&db.pool, db.engine, &enc, &dir.join("pre"), None).await,
+        Err(AppError::PasswordRequired)
+    ));
+    assert!(restore_backup_pw(&db.pool, db.engine, &enc, &dir.join("pre"), Some("mala")).await.is_err());
+    let still = snapshot(&export_to(db, &dir, "still.mibodega-backup").await);
+    let strip = |mut m: BTreeMap<String, Vec<String>>| {
+        m.remove("app_metadata");
+        m
+    };
+    assert!(strip(changed) == strip(still), "BD intacta tras intentos fallidos");
+
+    // Con la contraseña correcta vuelve exactamente al respaldo
+    restore_backup_pw(&db.pool, db.engine, &enc, &dir.join("pre"), Some("clave-123")).await.unwrap();
+    let after = snapshot(&export_to(db, &dir, "after.mibodega-backup").await);
+    assert!(strip(after) == strip(snap));
+    std::fs::remove_dir_all(dir).ok();
+}
+
+#[tokio::test]
+async fn backup_encrypted_sqlite() {
+    encrypted_backup(&sqlite_mem().await).await;
+}
+
+#[tokio::test]
+async fn backup_encrypted_mysql() {
+    let _g = MYSQL_LOCK.lock().await;
+    if let Some(db) = mysql_env().await {
+        encrypted_backup(&db).await;
+    }
+}

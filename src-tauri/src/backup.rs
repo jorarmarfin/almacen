@@ -157,6 +157,12 @@ async fn dump_table(conn: &mut AnyConnection, table: &str, cols: &[(&str, K)]) -
 
 /// Exporta un respaldo completo y consistente (una sola transacción de lectura = snapshot).
 pub async fn export_backup(pool: &AnyPool, engine: Engine, path: &Path) -> AppResult<Manifest> {
+    export_backup_pw(pool, engine, path, None).await
+}
+
+/// Igual que `export_backup`; con `password` cifra TODO el archivo (zip AES-256, legible con 7-Zip).
+pub async fn export_backup_pw(pool: &AnyPool, engine: Engine, path: &Path, password: Option<&str>) -> AppResult<Manifest> {
+    let password = password.filter(|p| !p.is_empty());
     let mut tx = pool.begin().await?;
     let conn: &mut AnyConnection = &mut tx;
     let mut files: Vec<(String, Vec<u8>)> = Vec::new();
@@ -190,7 +196,10 @@ pub async fn export_backup(pool: &AnyPool, engine: Engine, path: &Path) -> AppRe
     {
         let file = std::fs::File::create(&tmp)?;
         let mut zip = zip::ZipWriter::new(file);
-        let opts = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        let mut opts = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        if let Some(pw) = password {
+            opts = opts.with_aes_encryption(zip::AesMode::Aes256, pw);
+        }
         zip.start_file("manifest.json", opts).map_err(|e| bad(e.to_string()))?;
         zip.write_all(&serde_json::to_vec_pretty(&manifest)?)?;
         for (name, bytes) in &files {
@@ -217,13 +226,38 @@ pub struct LoadedBackup {
 
 /// Valida formato, versión de esquema, tablas y sumas SHA-256 antes de cualquier cambio (RN-12).
 pub fn load_backup(path: &Path) -> AppResult<LoadedBackup> {
+    load_backup_pw(path, None)
+}
+
+/// Lee una entrada del zip, descifrándola si hace falta. Distingue "falta contraseña" de "contraseña incorrecta".
+fn read_entry(zip: &mut zip::ZipArchive<std::fs::File>, name: &str, password: Option<&str>) -> AppResult<Vec<u8>> {
+    use zip::result::ZipError;
+    let mut bytes = Vec::new();
+    let res = match password {
+        Some(pw) => zip.by_name_decrypt(name, pw.as_bytes()).map(|mut f| f.read_to_end(&mut bytes).map(|_| ())),
+        None => zip.by_name(name).map(|mut f| f.read_to_end(&mut bytes).map(|_| ())),
+    };
+    match res {
+        Ok(Ok(())) => Ok(bytes),
+        // Con AES, una contraseña incorrecta puede fallar al leer o al verificar la autenticación
+        Ok(Err(_)) if password.is_some() => Err(bad("contraseña incorrecta o archivo dañado")),
+        Ok(Err(_)) => Err(bad(format!("archivo corrupto: {name}"))),
+        Err(ZipError::InvalidPassword) => Err(bad("contraseña incorrecta")),
+        Err(ZipError::UnsupportedArchive(m)) if password.is_none() && m.to_lowercase().contains("password") => {
+            Err(AppError::PasswordRequired)
+        }
+        Err(ZipError::FileNotFound) => Err(bad(format!("falta {name} en el respaldo"))),
+        Err(e) => Err(bad(format!("respaldo ilegible ({name}): {e}"))),
+    }
+}
+
+pub fn load_backup_pw(path: &Path, password: Option<&str>) -> AppResult<LoadedBackup> {
+    let password = password.filter(|p| !p.is_empty());
     let file = std::fs::File::open(path)?;
     let mut zip = zip::ZipArchive::new(file).map_err(|_| bad("el archivo no es un respaldo válido de Mi Bodega"))?;
     let manifest: Manifest = {
-        let mut f = zip.by_name("manifest.json").map_err(|_| bad("el respaldo no tiene manifiesto"))?;
-        let mut s = String::new();
-        f.read_to_string(&mut s).map_err(|_| bad("manifiesto ilegible"))?;
-        serde_json::from_str(&s).map_err(|_| bad("manifiesto inválido"))?
+        let bytes = read_entry(&mut zip, "manifest.json", password)?;
+        serde_json::from_slice(&bytes).map_err(|_| bad("manifiesto inválido"))?
     };
     if manifest.format != FORMAT || manifest.format_version != FORMAT_VERSION {
         return Err(bad("formato de respaldo desconocido"));
@@ -237,11 +271,7 @@ pub fn load_backup(path: &Path) -> AppResult<LoadedBackup> {
     let mut data = Vec::new();
     for (table, cols) in TABLES {
         let info = manifest.tables.get(*table).ok_or_else(|| bad(format!("falta la tabla {table} en el manifiesto")))?;
-        let mut bytes = Vec::new();
-        zip.by_name(&format!("data/{table}.ndjson"))
-            .map_err(|_| bad(format!("falta el archivo de la tabla {table}")))?
-            .read_to_end(&mut bytes)
-            .map_err(|_| bad(format!("archivo corrupto: {table}")))?;
+        let bytes = read_entry(&mut zip, &format!("data/{table}.ndjson"), password)?;
         if sha_hex(&bytes) != info.sha256 {
             return Err(bad(format!("suma de verificación incorrecta en {table}: el respaldo está dañado")));
         }
@@ -264,7 +294,11 @@ pub fn load_backup(path: &Path) -> AppResult<LoadedBackup> {
 
 /// Resumen para mostrar antes de restaurar (valida sin modificar nada).
 pub fn inspect_backup(path: &Path) -> AppResult<Manifest> {
-    Ok(load_backup(path)?.manifest)
+    inspect_backup_pw(path, None)
+}
+
+pub fn inspect_backup_pw(path: &Path, password: Option<&str>) -> AppResult<Manifest> {
+    Ok(load_backup_pw(path, password)?.manifest)
 }
 
 #[derive(Debug, Serialize)]
@@ -282,7 +316,17 @@ pub async fn restore_backup(
     path: &Path,
     pre_dir: &Path,
 ) -> AppResult<RestoreReport> {
-    let loaded = load_backup(path)?; // valida todo antes de tocar la BD
+    restore_backup_pw(pool, engine, path, pre_dir, None).await
+}
+
+pub async fn restore_backup_pw(
+    pool: &AnyPool,
+    engine: Engine,
+    path: &Path,
+    pre_dir: &Path,
+    password: Option<&str>,
+) -> AppResult<RestoreReport> {
+    let loaded = load_backup_pw(path, password)?; // valida todo antes de tocar la BD
 
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
     let pre_path = pre_dir.join(format!("pre-restore-{stamp}.mibodega-backup"));

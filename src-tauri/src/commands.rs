@@ -380,9 +380,9 @@ pub async fn get_app_info(app: AppHandle, state: State<'_, AppState>) -> AppResu
 }
 
 #[tauri::command]
-pub async fn export_backup(state: State<'_, AppState>, path: String) -> AppResult<Manifest> {
+pub async fn export_backup(state: State<'_, AppState>, path: String, password: Option<String>) -> AppResult<Manifest> {
     let db = state.db().await?;
-    backup::export_backup(&db.pool, db.engine, std::path::Path::new(&path)).await
+    backup::export_backup_pw(&db.pool, db.engine, std::path::Path::new(&path), password.as_deref()).await
 }
 
 #[tauri::command]
@@ -393,15 +393,15 @@ pub async fn export_sqlite_native(state: State<'_, AppState>, path: String) -> A
 
 /// Valida un respaldo y devuelve su manifiesto sin modificar nada.
 #[tauri::command]
-pub fn inspect_backup(path: String) -> AppResult<Manifest> {
-    backup::inspect_backup(std::path::Path::new(&path))
+pub fn inspect_backup(path: String, password: Option<String>) -> AppResult<Manifest> {
+    backup::inspect_backup_pw(std::path::Path::new(&path), password.as_deref())
 }
 
 #[tauri::command]
-pub async fn restore_backup(state: State<'_, AppState>, path: String) -> AppResult<RestoreReport> {
+pub async fn restore_backup(state: State<'_, AppState>, path: String, password: Option<String>) -> AppResult<RestoreReport> {
     let db = state.db().await?;
     let pre_dir = state.data_dir.join("backups");
-    backup::restore_backup(&db.pool, db.engine, std::path::Path::new(&path), &pre_dir).await
+    backup::restore_backup_pw(&db.pool, db.engine, std::path::Path::new(&path), &pre_dir, password.as_deref()).await
 }
 
 /// Arranque: carga config y abre la BD si ya existe configuración previa.

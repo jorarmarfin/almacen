@@ -8,6 +8,8 @@ pub enum AppError {
     AlreadyInitialized,
     #[error("{0}")]
     Validation(String),
+    #[error("el respaldo está protegido con contraseña")]
+    PasswordRequired,
     #[error("no encontrado: {0}")]
     NotFound(String),
     #[error("stock insuficiente (disponible: {available})")]
@@ -28,6 +30,7 @@ impl AppError {
             Self::NotConfigured => "NOT_CONFIGURED",
             Self::AlreadyInitialized => "ALREADY_INITIALIZED",
             Self::Validation(_) => "VALIDATION",
+            Self::PasswordRequired => "PASSWORD_REQUIRED",
             Self::NotFound(_) => "NOT_FOUND",
             Self::InsufficientStock { .. } => "INSUFFICIENT_STOCK",
             Self::Db(_) => "DB",
