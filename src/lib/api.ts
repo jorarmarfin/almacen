@@ -255,3 +255,81 @@ export const salesApi = {
     invoke<SaleSummary[]>("list_sales", { from: from ?? null, to: to ?? null, status: status ?? null }),
   get: (id: string) => invoke<SaleDetail>("get_sale", { id }),
 };
+
+// ---------- Caja (cierre, movimientos) y reportes ----------
+
+export interface SessionRow {
+  id: string;
+  opened_at: string;
+  opening_cash_cents: number;
+  closed_at: string | null;
+  counted_cash_cents: number | null;
+  expected_cash_cents: number | null;
+  difference_cents: number | null;
+  note: string | null;
+  status: "OPEN" | "CLOSED";
+}
+
+export interface TypeTotal {
+  key: string;
+  total_cents: number;
+}
+
+export interface SessionDetail {
+  session: SessionRow;
+  expected_cash_cents: number;
+  movements: {
+    id: string;
+    type: string;
+    method: string;
+    amount_cents_signed: number;
+    concept: string;
+    occurred_at: string;
+  }[];
+  cash_by_type: TypeTotal[];
+  sales_by_method: TypeTotal[];
+}
+
+export interface Dashboard {
+  sales_total_cents: number;
+  sales_count: number;
+  active_products: number;
+  low_stock_count: number;
+  cash_open: boolean;
+}
+
+export interface SalesReport {
+  total_cents: number;
+  count: number;
+  canceled_count: number;
+  canceled_total_cents: number;
+  by_method: TypeTotal[];
+  by_day: { date: string; count: number; total_cents: number }[];
+  revenue_cents: number;
+  cost_cents: number;
+  margin_cents: number;
+}
+
+export interface TopProduct {
+  product_id: string;
+  name: string;
+  units_base: number;
+  amount_cents: number;
+}
+
+export const cashApi = {
+  addMovement: (kind: "INGRESO" | "EGRESO" | "RETIRO", method: PayMethod, amountCents: number, concept: string) =>
+    invoke<void>("add_cash_movement", { kind, method, amountCents, concept }),
+  close: (countedCents: number, note: string | null) => invoke<string>("close_cash", { countedCents, note }),
+  sessions: () => invoke<SessionRow[]>("list_cash_sessions"),
+  session: (id: string) => invoke<SessionDetail>("get_cash_session", { id }),
+};
+
+export const reportsApi = {
+  dashboard: (from: string, to: string) => invoke<Dashboard>("dashboard", { from, to }),
+  sales: (from: string, to: string) => invoke<SalesReport>("sales_report", { from, to }),
+  top: (from: string, to: string, metric: "units" | "amount", limit = 10) =>
+    invoke<TopProduct[]>("top_products", { from, to, metric, limit }),
+  exportCsv: (kind: "products" | "kardex" | "sales", from: string, to: string) =>
+    invoke<string>("export_csv", { kind, from, to }),
+};

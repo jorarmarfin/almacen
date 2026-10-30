@@ -21,7 +21,7 @@
 7. **Stock**: `stock_balances` materializado + kardex, actualizado en la misma transacción; test de invariante.
 
 ## Estado Actual
-- **Fase activa**: Fase 4 — Ventas y cobros (EN PROGRESO, implementada; falta validación manual). Fases 1-3 implementadas, pendientes de validar en pantalla
+- **Fase activa**: Fase 5 — Caja y reportes (EN PROGRESO, implementada; falta validación manual). Fases 1-4 implementadas, pendientes de validar en pantalla
 - **Progreso**: 0 de 6 fases completadas
 - **Bloqueadores**: ninguno (alcance MySQL y backup para ambos motores confirmados)
 - **Próximo paso concreto (Fase 2)**: probar Productos/Inventario en la app (`./scripts/run.sh`, importar `examples/productos.csv`), pulir UX y cerrar fase. Pendientes Fase 1 (no bloquean): tipos TS autogenerados, ADR, seed, keyring. _Anterior:_ lanzar `pnpm tauri dev` y probar Setup (SQLite y MySQL); luego generación de tipos TS (ts-rs/specta), trait de repos y seed; validar CI en GitHub (build Windows).
@@ -210,7 +210,7 @@
 
 ---
 
-## Fase 5: Caja y reportes — PENDIENTE
+## Fase 5: Caja y reportes — EN PROGRESO
 
 **Duración estimada**: 4 días
 **Objetivo**: RF-05 y RF-06. Sesión de caja completa, cierre inmutable, dashboard y reportes con export CSV.
@@ -222,30 +222,35 @@
 ### Entregables (Definición de Done)
 
 #### Backend
-- [ ] Apertura/cierre, única sesión `OPEN` (índice único parcial / validación por tx en MySQL)
-- [ ] Ingresos/egresos/retiros manuales; esperado = fórmula RF-05
-- [ ] Cierre con contado, diferencia, observación; inmutable
-- [ ] Consultas de reportes: ventas por día/rango, métodos, anulaciones, top productos, stock bajo, margen bruto estimado
-- [ ] Exportación CSV: productos, kardex, ventas
+- [x] Apertura/cierre, única sesión `OPEN` (índice único parcial / validación por tx en MySQL)
+- [x] Ingresos/egresos/retiros manuales; esperado = fórmula RF-05
+- [x] Cierre con contado, diferencia, observación; inmutable
+- [x] Consultas de reportes: ventas por día/rango, métodos, anulaciones, top productos, stock bajo, margen bruto estimado
+- [x] Exportación CSV: productos, kardex, ventas
 
 #### Frontend
-- [ ] Inicio con KPIs y stock bajo
-- [ ] Caja: abrir, movimientos, cierre, historial
-- [ ] Reportes con rango de fechas y botón exportar (diálogo nativo de guardado)
+- [x] Inicio con KPIs y stock bajo
+- [x] Caja: abrir, movimientos, cierre, historial
+- [x] Reportes con rango de fechas y botón exportar (diálogo nativo de guardado)
 
 #### Tests
-- [ ] Spec #5, #6 (pago mixto, diferencia en cierre)
-- [ ] Totales del día == ventas válidas netas de anulaciones (HU-08)
-- [ ] Zona horaria: UTC en BD, local en UI
+- [x] Spec #5, #6 (pago mixto, diferencia en cierre)
+- [x] Totales del día == ventas válidas netas de anulaciones (HU-08)
+- [x] Zona horaria: UTC en BD, local en UI
 
 #### Documentación
-- [ ] Flujo D, definición de margen estimado
+- [ ] Flujo D, definición de margen estimado (guía de usuario)
 
 ### Posibles obstáculos
 - Agregaciones por día con zona local distinta entre SQLite/MySQL → convertir rangos en Rust a UTC antes de consultar.
 
 ### Notas de avance
--
+- 2026-10-30: `cash.rs` (movimientos manuales, cierre, historial, detalle) y `reports.rs` (inicio, ventas, más vendidos, exportaciones). Cierre = UPDATE condicional (`status='OPEN'`) que congela esperado/contado/diferencia y libera `open_flag`; sesión cerrada no admite movimientos, ventas ni segundo cierre. Egreso/retiro en efectivo no puede dejar el esperado en negativo.
+- RN-11 verificado: anular una venta en efectivo de un periodo cerrado exige caja abierta y el contra-movimiento va a la sesión abierta; el cierre anterior no cambia.
+- Reportes: ventas por día se agrupan en Rust con la hora LOCAL (independiente del motor); anuladas se informan aparte; margen estimado = Σ line_total − Σ costo_snapshot×unidades base (sin prorratear descuento total). Los más vendidos indican la métrica de orden.
+- CSV: BOM UTF-8, separador coma, punto decimal (Excel es-PE); la plantilla de importación también pasó a coma. Guardado con diálogo nativo.
+- Hallazgo MySQL: `before` es palabra reservada como alias (renombrado a `bal_before`).
+- Tests `phase5_tests` en SQLite y MySQL 8.4 (14 pruebas en total). Falta validación manual en pantalla.
 
 ---
 
@@ -315,6 +320,7 @@
 6. Rendimiento del flujo de venta → índices y búsqueda en Rust, no filtrar en React.
 
 ## Historial de Cambios
+- 2026-10-30: Fase 5 implementada (cierre de caja, movimientos, reportes, exportación CSV, inicio).
 - 2026-10-30: Fase 4 implementada (ventas, pagos mixtos, anulación, ticket interno, historial).
 - 2026-10-30: Fase 3 implementada (proveedores, compras, confirmación idempotente); plantilla CSV de productos y CRUD de categorías añadidos a Fase 2.
 - 2026-10-30: Fase 2 implementada (backend probado en ambos motores + UI); pendiente validación manual.
