@@ -6,12 +6,12 @@ import Cash from "./pages/Cash";
 import Categories from "./pages/Categories";
 import Home from "./pages/Home";
 import Inventory from "./pages/Inventory";
-import Placeholder from "./pages/Placeholder";
 import Products from "./pages/Products";
 import Purchases from "./pages/Purchases";
 import Sell from "./pages/Sell";
 import SalesHistory from "./pages/SalesHistory";
 import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
 import Setup from "./pages/Setup";
 
 export default function App() {
@@ -34,7 +34,7 @@ export default function App() {
         <Route path="compras" element={<Purchases />} />
         <Route path="caja" element={<Cash />} />
         <Route path="reportes" element={<Reports />} />
-        <Route path="configuracion" element={<Placeholder title="Configuración / Respaldo" />} />
+        <Route path="configuracion" element={<Settings businessName={name} />} />
       </Route>
     </Routes>
   );

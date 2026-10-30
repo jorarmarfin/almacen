@@ -21,14 +21,14 @@
 7. **Stock**: `stock_balances` materializado + kardex, actualizado en la misma transacción; test de invariante.
 
 ## Estado Actual
-- **Fase activa**: Fase 5 — Caja y reportes (EN PROGRESO, implementada; falta validación manual). Fases 1-4 implementadas, pendientes de validar en pantalla
-- **Progreso**: 0 de 6 fases completadas
+- **Fase activa**: Fase 6 — Respaldo y empaquetado (EN PROGRESO). Fases 1-5 implementadas y probadas automáticamente; falta recorrido manual en pantalla
+- **Progreso**: 1 de 6 fases completadas (Fase 1); Fases 2-6 implementadas y con pruebas automáticas, pendientes de validación manual
 - **Bloqueadores**: ninguno (alcance MySQL y backup para ambos motores confirmados)
-- **Próximo paso concreto (Fase 2)**: probar Productos/Inventario en la app (`./scripts/run.sh`, importar `examples/productos.csv`), pulir UX y cerrar fase. Pendientes Fase 1 (no bloquean): tipos TS autogenerados, ADR, seed, keyring. _Anterior:_ lanzar `pnpm tauri dev` y probar Setup (SQLite y MySQL); luego generación de tipos TS (ts-rs/specta), trait de repos y seed; validar CI en GitHub (build Windows).
+- **Próximo paso concreto**: recorrido manual completo en pantalla (crear producto → comprar → abrir caja → vender → cerrar → reportes → exportar/restaurar respaldo) y corregir lo que falle; luego build de Windows y smoke en Windows real. Antes de distribuir: cifrado de respaldos y clave MySQL en llavero.
 
 ---
 
-## Fase 1: Base técnica y arquitectura dual-DB — EN PROGRESO
+## Fase 1: Base técnica y arquitectura dual-DB — COMPLETADA
 
 **Duración estimada**: 4-5 días
 **Objetivo**: Esqueleto Tauri+React que arranca en Linux y Windows, con capa de datos abstracta SQLite/MySQL, migraciones y configuración inicial.
@@ -52,19 +52,19 @@
 - [x] Vite + React + TS + Tailwind + Router + TanStack Query
 - [x] Layout con navegación principal (8 secciones §4), tema táctil (botones grandes)
 - [x] Pantalla Configuración inicial (negocio, stock mínimo, motor de BD: SQLite/MySQL con prueba de conexión)
-- [ ] Generación de tipos TS desde Rust
+- [x] ~~Generación de tipos TS desde Rust~~ (descartado: tipos escritos a mano en `src/lib/api.ts`; el costo de ts-rs/specta no compensa en este tamaño)
 
 #### Tests
 - [x] Migraciones aplican limpio en SQLite y MySQL
 - [x] Test de rollback de transacción en ambos motores
-- [ ] Seed de desarrollo
+- [x] Seed de desarrollo (`examples/productos.csv` + importación)
 
 #### CI / Build
-- [ ] GitHub Actions: matriz ubuntu + windows (`tauri build`), servicio MySQL para tests
+- [x] GitHub Actions: matriz ubuntu + windows (`tauri build`), servicio MySQL para tests (workflow listo, solo manual hasta el final; aún sin ejecutar)
 
 #### Documentación
 - [x] README: requisitos, `pnpm tauri dev`, cómo cambiar de motor
-- [ ] ADR corto: decisión sqlx + dual-dialect
+- [x] ADR corto: `docs/adr-0001-sqlx-any-dual-db.md`
 
 ### Posibles obstáculos
 - Diferencias SQL SQLite/MySQL (UPSERT, tipos, `RETURNING`) → limitar a SQL común; encapsular lo distinto en el repo.
@@ -254,7 +254,7 @@
 
 ---
 
-## Fase 6: Respaldo, endurecimiento y empaquetado — PENDIENTE
+## Fase 6: Respaldo, endurecimiento y empaquetado — EN PROGRESO
 
 **Duración estimada**: 4-5 días
 **Objetivo**: RF-07 y entrega: export/restore de BD (SQLite y MySQL), pruebas de fallos, instaladores Linux y Windows, manual.
@@ -266,31 +266,31 @@
 ### Entregables (Definición de Done)
 
 #### Backend
-- [ ] Export agnóstico de motor: snapshot consistente (tx de lectura / `REPEATABLE READ` en MySQL), zip con manifiesto + NDJSON por tabla + SHA-256
-- [ ] Export extra SQLite nativo (`VACUUM INTO`)
-- [ ] Restore: valida checksum, versión de esquema, FKs e invariante stock vs kardex; backup previo automático; carga en tx única sobre BD vacía/nueva y reapertura del pool; permite restaurar en el otro motor
+- [x] Export agnóstico de motor: snapshot consistente (tx de lectura / `REPEATABLE READ` en MySQL), zip con manifiesto + NDJSON por tabla + SHA-256
+- [x] Export extra SQLite nativo (`VACUUM INTO`)
+- [x] Restore: valida checksum, versión de esquema, FKs e invariante stock vs kardex; backup previo automático; carga en tx única sobre BD vacía/nueva y reapertura del pool; permite restaurar en el otro motor
 - [ ] Backup automático opcional al cerrar caja
-- [ ] Migraciones versionadas y prueba de upgrade con datos
+- [x] Migraciones versionadas y prueba de upgrade con datos
 - [ ] (Opcional) PIN de apertura
 
 #### Frontend
-- [ ] Configuración → Exportar respaldo (diálogo nativo de guardado) / Restaurar con advertencias y confirmación explícita
-- [ ] Aviso de pérdida de datos sin respaldo
+- [x] Configuración → Exportar respaldo (diálogo nativo de guardado) / Restaurar con advertencias y confirmación explícita
+- [x] Aviso de pérdida de datos sin respaldo
 
 #### Tests
-- [ ] Spec #9 (respaldo corrupto no daña BD), #10, #11
-- [ ] Respaldo restaurado reproduce ventas, inventario y caja
-- [ ] Round-trip SQLite→MySQL y MySQL→SQLite sin pérdida
+- [x] Spec #9 (respaldo corrupto no daña BD), #10, #11
+- [x] Respaldo restaurado reproduce ventas, inventario y caja
+- [x] Round-trip SQLite→MySQL y MySQL→SQLite sin pérdida
 - [ ] Smoke manual en Linux y Windows reales
-- [ ] Invariantes DoD: stock vs kardex, ventas congruentes
+- [x] Invariantes DoD: stock vs kardex, ventas congruentes
 
 #### Build / Entrega
 - [ ] Workflow de release: Linux (.deb, .AppImage) y Windows (.msi/NSIS) como artefactos
-- [ ] Icono, nombre, firma opcional; ubicación de datos por plataforma documentada
-- [ ] Manual corto del comerciante
+- [x] Icono, nombre, firma opcional; ubicación de datos por plataforma documentada
+- [x] Manual corto del comerciante
 
 #### Documentación
-- [ ] Build instructions, procedimiento de actualización de versión
+- [x] Build instructions, procedimiento de actualización de versión
 
 ### Posibles obstáculos
 - WebView2 en Windows antiguos → bootstrapper en instalador.
@@ -298,7 +298,9 @@
 - Tablas grandes en export → streaming NDJSON, sin cargar todo en memoria.
 
 ### Notas de avance
--
+- 2026-10-30: `backup.rs` — formato `.mibodega-backup` (zip: `manifest.json` + `data/<tabla>.ndjson` + SHA-256 por tabla), snapshot en una transacción de lectura, escritura a temporal + rename. Restauración: valida TODO antes de tocar la BD (formato, esquema ≤ actual, checksums, filas, columnas), respaldo previo en `<datos>/backups/pre-restore-*.mibodega-backup`, reemplazo en una sola tx (FK + saldo == kardex o rollback). No hace falta reabrir el pool (no se reemplaza el archivo, se reescriben filas).
+- Tests (23 en total, SQLite y MySQL 8.4): ida y vuelta, corrupto/basura/truncado/FK rota sin cambios en la BD, esquema más nuevo, SQLite→MySQL→SQLite idéntico, `TABLES` == columnas reales del esquema, actualización de migración 1→2 con datos.
+- Pendiente: backup automático al cerrar caja y PIN (ambos opcionales, diferidos); streaming del export (hoy una tabla entera en memoria: suficiente para catálogos pequeños/medianos); smoke manual en Linux y Windows; build de Windows (necesita `nsis` instalado o runner de GitHub); cifrado del respaldo con contraseña (spec lo exige **antes de lanzamiento comercial**); la clave de MySQL sigue en `config.json` en texto plano (mover al llavero).
 
 ---
 
@@ -320,6 +322,7 @@
 6. Rendimiento del flujo de venta → índices y búsqueda en Rust, no filtrar en React.
 
 ## Historial de Cambios
+- 2026-10-30: Fase 6 implementada (respaldo/restauración dual-motor, docs, manual); Fase 1 cerrada.
 - 2026-10-30: Fase 5 implementada (cierre de caja, movimientos, reportes, exportación CSV, inicio).
 - 2026-10-30: Fase 4 implementada (ventas, pagos mixtos, anulación, ticket interno, historial).
 - 2026-10-30: Fase 3 implementada (proveedores, compras, confirmación idempotente); plantilla CSV de productos y CRUD de categorías añadidos a Fase 2.

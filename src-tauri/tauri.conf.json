@@ -30,6 +30,18 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "category": "Business",
+    "shortDescription": "Inventario, ventas y caja para bodegas",
+    "longDescription": "Mi Bodega: aplicación offline de inventario, compras, ventas y caja para bodegas y tiendas pequeñas. Base de datos SQLite o MySQL, con respaldo y restauración.",
+    "copyright": "Mi Bodega",
+    "windows": {
+      "nsis": {
+        "languages": [
+          "Spanish"
+        ],
+        "installMode": "currentUser"
+      }
+    }
   }
 }

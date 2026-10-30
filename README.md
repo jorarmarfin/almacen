@@ -28,6 +28,14 @@ MYSQL_TEST_URL=mysql://root:test@127.0.0.1:3399/mibodega_test cargo test --manif
 ## Elegir motor de BD
 En la pantalla inicial: SQLite (archivo `mibodega.db` en el directorio de datos de la app) o MySQL (host, puerto, usuario, clave, base). La elección se guarda en `config.json` del directorio de datos. La base MySQL debe existir; las tablas se migran solas.
 
+## Respaldo y restauración
+Configuración → Exportar/Restaurar (`.mibodega-backup`, zip con manifiesto y SHA-256). Funciona en SQLite y MySQL y entre ambos. Detalle en `docs/`.
+
+## Documentación
+- `docs/manual-comerciante.md` — manual de uso
+- `docs/actualizacion.md` — actualizar versión y reglas de migraciones
+- `docs/adr-0001-sqlx-any-dual-db.md` — decisión de arquitectura de datos
+
 ## Migraciones
 Dos dialectos en paralelo: `src-tauri/migrations/sqlite` y `src-tauri/migrations/mysql`. Todo cambio de esquema va en ambos con el mismo número.
 

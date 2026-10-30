@@ -333,3 +333,36 @@ export const reportsApi = {
   exportCsv: (kind: "products" | "kardex" | "sales", from: string, to: string) =>
     invoke<string>("export_csv", { kind, from, to }),
 };
+
+// ---------- Configuración y respaldo ----------
+
+export interface AppInfo {
+  version: string;
+  data_dir: string;
+  engine: Engine;
+  last_backup_at: string | null;
+}
+
+export interface BackupManifest {
+  format: string;
+  schema_version: number;
+  created_at: string;
+  installation_id: string | null;
+  business_name: string | null;
+  engine: string;
+  app_version: string;
+  tables: Record<string, { rows: number; sha256: string }>;
+}
+
+export interface RestoreReport {
+  pre_restore_backup: string | null;
+  tables: Record<string, number>;
+}
+
+export const backupApi = {
+  info: () => invoke<AppInfo>("get_app_info"),
+  exportBackup: (path: string) => invoke<BackupManifest>("export_backup", { path }),
+  exportSqliteNative: (path: string) => invoke<void>("export_sqlite_native", { path }),
+  inspect: (path: string) => invoke<BackupManifest>("inspect_backup", { path }),
+  restore: (path: string) => invoke<RestoreReport>("restore_backup", { path }),
+};
