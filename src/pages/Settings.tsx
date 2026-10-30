@@ -172,6 +172,59 @@ function PasswordPrompt({ error, onClose, onConfirm }: { error: string | null; o
   );
 }
 
+function AutoBackupSection() {
+  const qc = useQueryClient();
+  const dir = useQuery({ queryKey: ["auto-backup-dir"], queryFn: backupApi.autoBackupDir });
+  const [error, setError] = useState<string | null>(null);
+
+  async function choose() {
+    setError(null);
+    try {
+      const picked = await open({ directory: true, multiple: false });
+      if (!picked || Array.isArray(picked)) return;
+      await backupApi.setAutoBackupDir(picked);
+      qc.invalidateQueries({ queryKey: ["auto-backup-dir"] });
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
+  async function disable() {
+    setError(null);
+    try {
+      await backupApi.setAutoBackupDir(null);
+      qc.invalidateQueries({ queryKey: ["auto-backup-dir"] });
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-5">
+      <h2 className="mb-2 font-bold text-brand">Respaldo automático al cerrar caja</h2>
+      <p className="mb-3 text-sm text-slate-600">
+        Al cerrar la caja se guarda un respaldo en la carpeta que elijas (se conservan los 14 más recientes). Conviene elegir un USB o una carpeta
+        sincronizada con la nube. Estos respaldos <b>no llevan contraseña</b>: usa una carpeta privada.
+      </p>
+      {dir.data ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <code className="break-all rounded bg-slate-100 px-2 py-1 text-xs">{dir.data}</code>
+          <button className="btn-ghost min-h-10" onClick={choose}>
+            Cambiar carpeta
+          </button>
+          <button className="btn-ghost min-h-10 text-red-700" onClick={disable}>
+            Desactivar
+          </button>
+        </div>
+      ) : (
+        <button className="btn-ghost" onClick={choose}>
+          Elegir carpeta…
+        </button>
+      )}
+      {error && <p className="mt-3 text-red-700">{error}</p>}
+    </section>
+  );
+}
+
 export default function Settings({ businessName }: { businessName: string }) {
   const qc = useQueryClient();
   const info = useQuery({ queryKey: ["app-info"], queryFn: backupApi.info });
@@ -270,6 +323,8 @@ export default function Settings({ businessName }: { businessName: string }) {
           El respaldo funciona con SQLite y MySQL y se puede restaurar en cualquiera de los dos motores.
         </p>
       </section>
+
+      <AutoBackupSection />
 
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="mb-3 font-bold text-brand">Acerca de</h2>

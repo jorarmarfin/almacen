@@ -269,7 +269,7 @@
 - [x] Export agnóstico de motor: snapshot consistente (tx de lectura / `REPEATABLE READ` en MySQL), zip con manifiesto + NDJSON por tabla + SHA-256
 - [x] Export extra SQLite nativo (`VACUUM INTO`)
 - [x] Restore: valida checksum, versión de esquema, FKs e invariante stock vs kardex; backup previo automático; carga en tx única sobre BD vacía/nueva y reapertura del pool; permite restaurar en el otro motor
-- [ ] Backup automático opcional al cerrar caja
+- [x] Backup automático opcional al cerrar caja (carpeta configurable, rotación de 14, sin contraseña; un fallo no revierte el cierre)
 - [x] Migraciones versionadas y prueba de upgrade con datos
 - [ ] (Opcional) PIN de apertura
 
@@ -301,7 +301,8 @@
 - 2026-10-30: `backup.rs` — formato `.mibodega-backup` (zip: `manifest.json` + `data/<tabla>.ndjson` + SHA-256 por tabla), snapshot en una transacción de lectura, escritura a temporal + rename. Restauración: valida TODO antes de tocar la BD (formato, esquema ≤ actual, checksums, filas, columnas), respaldo previo en `<datos>/backups/pre-restore-*.mibodega-backup`, reemplazo en una sola tx (FK + saldo == kardex o rollback). No hace falta reabrir el pool (no se reemplaza el archivo, se reescriben filas).
 - Tests (23 en total, SQLite y MySQL 8.4): ida y vuelta, corrupto/basura/truncado/FK rota sin cambios en la BD, esquema más nuevo, SQLite→MySQL→SQLite idéntico, `TABLES` == columnas reales del esquema, actualización de migración 1→2 con datos.
 - 2026-10-30: `./scripts/build-linux.sh` OK → `.deb` 5.3 MB, `.rpm` 5.4 MB y `.AppImage` 82 MB (aún sin instalar/probar en limpio). Windows sin compilar todavía.
-- Pendiente: backup automático al cerrar caja y PIN (ambos opcionales, diferidos); streaming del export (hoy una tabla entera en memoria: suficiente para catálogos pequeños/medianos); smoke manual en Linux y Windows; build de Windows (necesita `nsis` instalado o runner de GitHub); cifrado del respaldo con contraseña (spec lo exige **antes de lanzamiento comercial**); la clave de MySQL sigue en `config.json` en texto plano (mover al llavero).
+- 2026-10-30 (pendientes de seguridad cerrados): respaldo **cifrado** opcional (zip AES-256; distingue falta de contraseña vs incorrecta; la BD queda intacta ante fallos); clave de MySQL en el **llavero del SO** (`keyring` 4; migra configuraciones antiguas; si no hay llavero queda en el archivo); respaldo automático al cerrar caja con rotación de 14. Suite: 29 tests en SQLite y MySQL.
+- Pendiente: PIN de apertura (opcional, diferido); streaming del export (hoy una tabla entera en memoria: suficiente para catálogos pequeños/medianos); smoke manual en Linux y Windows; build de Windows (necesita `nsis` instalado o el runner de GitHub).
 
 ---
 

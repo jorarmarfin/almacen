@@ -31,6 +31,8 @@ Mi Bodega funciona **sin internet**. Tus datos se guardan en tu equipo.
 
 ## 7. Respaldos — hazlos seguido
 **Configuración → Exportar respaldo**. Guarda el archivo `.mibodega-backup` en un USB o en la nube.
+- Al exportar puedes **proteger el respaldo con contraseña** (recomendado). **Si la olvidas, no se puede recuperar.**
+- **Respaldo automático**: en Configuración elige una carpeta (mejor un USB o una carpeta de la nube) y la app guardará un respaldo cada vez que cierres la caja (conserva los 14 últimos; sin contraseña, usa una carpeta privada).
 - Si el equipo falla y no hay respaldo, **los datos se pierden**.
 - **Restaurar respaldo** reemplaza todos los datos actuales; antes la app guarda un respaldo de seguridad. Pide escribir `RESTAURAR` para confirmar.
 - El respaldo sirve para pasar de SQLite a MySQL y al revés.

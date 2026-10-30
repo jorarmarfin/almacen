@@ -320,10 +320,16 @@ export interface TopProduct {
   amount_cents: number;
 }
 
+export interface CloseResult {
+  session_id: string;
+  auto_backup: string | null;
+  auto_backup_error: string | null;
+}
+
 export const cashApi = {
   addMovement: (kind: "INGRESO" | "EGRESO" | "RETIRO", method: PayMethod, amountCents: number, concept: string) =>
     invoke<void>("add_cash_movement", { kind, method, amountCents, concept }),
-  close: (countedCents: number, note: string | null) => invoke<string>("close_cash", { countedCents, note }),
+  close: (countedCents: number, note: string | null) => invoke<CloseResult>("close_cash", { countedCents, note }),
   sessions: () => invoke<SessionRow[]>("list_cash_sessions"),
   session: (id: string) => invoke<SessionDetail>("get_cash_session", { id }),
 };
@@ -366,6 +372,8 @@ export const backupApi = {
   info: () => invoke<AppInfo>("get_app_info"),
   exportBackup: (path: string, password: string | null = null) =>
     invoke<BackupManifest>("export_backup", { path, password }),
+  autoBackupDir: () => invoke<string | null>("get_auto_backup_dir"),
+  setAutoBackupDir: (dir: string | null) => invoke<void>("set_auto_backup_dir", { dir }),
   exportSqliteNative: (path: string) => invoke<void>("export_sqlite_native", { path }),
   inspect: (path: string, password: string | null = null) => invoke<BackupManifest>("inspect_backup", { path, password }),
   restore: (path: string, password: string | null = null) => invoke<RestoreReport>("restore_backup", { path, password }),

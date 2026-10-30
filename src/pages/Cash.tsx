@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Modal from "../components/Modal";
 import OpenCashCard from "../components/OpenCashCard";
-import { cashApi, errorMessage, salesApi, type PayMethod, type SessionRow } from "../lib/api";
+import { cashApi, errorMessage, salesApi, type CloseResult, type PayMethod, type SessionRow } from "../lib/api";
 import { formatCents, formatDateTime, parseCents } from "../lib/money";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -77,16 +77,41 @@ function CloseDialog({ expected, onClose }: { expected: number; onClose: () => v
   const [counted, setCounted] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<CloseResult | null>(null);
   const cents = parseCents(counted);
   const diff = cents === null ? null : cents - expected;
   const close = useMutation({
     mutationFn: () => cashApi.close(cents!, note.trim() || null),
-    onSuccess: () => {
+    onSuccess: (r) => {
       for (const k of ["cash", "cash-session", "cash-sessions"]) qc.invalidateQueries({ queryKey: [k] });
-      onClose();
+      // Sin respaldo automático configurado se cierra directo; si no, se muestra su resultado.
+      if (r.auto_backup || r.auto_backup_error) setResult(r);
+      else onClose();
     },
     onError: (e) => setError(errorMessage(e)),
   });
+  if (result) {
+    return (
+      <Modal title="Caja cerrada" onClose={onClose}>
+        <p className="text-emerald-700">El cierre quedó registrado.</p>
+        {result.auto_backup && (
+          <p className="mt-3 break-all text-sm text-slate-700">
+            Respaldo automático guardado en <code>{result.auto_backup}</code>
+          </p>
+        )}
+        {result.auto_backup_error && (
+          <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+            El cierre se registró, pero el respaldo automático falló: {result.auto_backup_error}. Haz uno manual en Configuración.
+          </p>
+        )}
+        <div className="mt-6 flex justify-end">
+          <button className="btn-accent" onClick={onClose} autoFocus>
+            Aceptar
+          </button>
+        </div>
+      </Modal>
+    );
+  }
   return (
     <Modal title="Cerrar caja" onClose={onClose}>
       <div className="space-y-4">

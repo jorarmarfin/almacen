@@ -76,6 +76,9 @@ pub struct DbConfig {
     pub engine: Engine,
     #[serde(default)]
     pub mysql: Option<MysqlConfig>,
+    /// Carpeta donde se guarda un respaldo automático al cerrar la caja (opcional).
+    #[serde(default)]
+    pub auto_backup_dir: Option<String>,
 }
 
 impl DbConfig {

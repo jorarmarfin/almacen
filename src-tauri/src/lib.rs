@@ -67,6 +67,8 @@ pub fn run() {
             commands::sales_report,
             commands::top_products,
             commands::export_csv,
+            commands::get_auto_backup_dir,
+            commands::set_auto_backup_dir,
             commands::get_app_info,
             commands::export_backup,
             commands::export_sqlite_native,

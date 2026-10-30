@@ -430,3 +430,32 @@ async fn backup_encrypted_mysql() {
         encrypted_backup(&db).await;
     }
 }
+
+#[test]
+fn rotation_keeps_latest_and_only_touches_auto_files() {
+    let dir = tmp_dir();
+    for i in 0..20 {
+        std::fs::write(dir.join(format!("auto-20261030-{i:06}.mibodega-backup")), b"x").unwrap();
+    }
+    std::fs::write(dir.join("manual.mibodega-backup"), b"x").unwrap();
+    std::fs::write(dir.join("notas.txt"), b"x").unwrap();
+    assert_eq!(rotate_auto_backups(&dir, 14).unwrap(), 6);
+    let mut left: Vec<String> = std::fs::read_dir(&dir).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().to_string()).collect();
+    left.sort();
+    assert_eq!(left.iter().filter(|n| n.starts_with("auto-")).count(), 14);
+    assert!(left.contains(&"auto-20261030-000019.mibodega-backup".to_string()), "se conservan los más recientes");
+    assert!(!left.contains(&"auto-20261030-000000.mibodega-backup".to_string()));
+    assert!(left.contains(&"manual.mibodega-backup".to_string()) && left.contains(&"notas.txt".to_string()));
+    std::fs::remove_dir_all(dir).ok();
+}
+
+#[tokio::test]
+async fn auto_backup_creates_valid_file() {
+    let dir = tmp_dir();
+    let db = sqlite_mem().await;
+    populate(&db.pool).await;
+    let p = auto_backup(&db.pool, Engine::Sqlite, &dir.join("respaldos")).await.unwrap();
+    assert!(p.file_name().unwrap().to_string_lossy().starts_with("auto-"));
+    assert_eq!(inspect_backup(&p).unwrap().tables["sales"].rows, 2);
+    std::fs::remove_dir_all(dir).ok();
+}

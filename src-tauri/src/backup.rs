@@ -383,3 +383,34 @@ pub async fn export_sqlite_native(pool: &AnyPool, engine: Engine, path: &Path) -
     sqlx::query(sqlx::AssertSqlSafe(format!("VACUUM INTO '{escaped}'"))).execute(pool).await?;
     Ok(())
 }
+
+/// Cuántos respaldos automáticos se conservan en la carpeta (los más recientes).
+pub const AUTO_KEEP: usize = 14;
+
+/// Borra los respaldos automáticos más antiguos, conservando los `keep` más recientes.
+/// Solo toca archivos `auto-*.mibodega-backup`; nunca otros archivos de la carpeta.
+pub fn rotate_auto_backups(dir: &Path, keep: usize) -> AppResult<usize> {
+    let mut files: Vec<_> = std::fs::read_dir(dir)?
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            let n = e.file_name().to_string_lossy().to_string();
+            n.starts_with("auto-") && n.ends_with(".mibodega-backup")
+        })
+        .collect();
+    files.sort_by_key(|e| e.file_name()); // el sello de fecha en el nombre ordena cronológicamente
+    let excess = files.len().saturating_sub(keep);
+    for f in files.iter().take(excess) {
+        std::fs::remove_file(f.path())?;
+    }
+    Ok(excess)
+}
+
+/// Respaldo automático (sin contraseña) en `dir` y rotación. Devuelve la ruta creada.
+pub async fn auto_backup(pool: &AnyPool, engine: Engine, dir: &Path) -> AppResult<std::path::PathBuf> {
+    std::fs::create_dir_all(dir)?;
+    let name = format!("auto-{}.mibodega-backup", chrono::Local::now().format("%Y%m%d-%H%M%S"));
+    let path = dir.join(name);
+    export_backup(pool, engine, &path).await?;
+    rotate_auto_backups(dir, AUTO_KEEP)?;
+    Ok(path)
+}

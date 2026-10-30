@@ -84,6 +84,9 @@ pub async fn test_db_connection(state: State<'_, AppState>, config: DbConfig) ->
 /// Guarda la configuración de motor, abre la conexión y migra.
 #[tauri::command]
 pub async fn set_db_config(state: State<'_, AppState>, config: DbConfig) -> AppResult<()> {
+    let mut config = config;
+    // La carpeta de respaldo automático no viene del formulario de conexión: se conserva.
+    config.auto_backup_dir = state.config.read().await.auto_backup_dir.clone();
     let db = Db::open(&config, &state.data_dir).await?;
     config.save(&state.config_path)?;
     if let Some(old) = state.db.write().await.replace(db) {
@@ -303,9 +306,47 @@ pub async fn add_cash_movement(
     cash::add_manual_movement(&state.db().await?.pool, kind, &method, amount_cents, &concept).await
 }
 
+#[derive(Serialize)]
+pub struct CloseResult {
+    pub session_id: String,
+    pub auto_backup: Option<String>,
+    /// Un fallo del respaldo automático NO revierte el cierre de caja: se informa aparte.
+    pub auto_backup_error: Option<String>,
+}
+
 #[tauri::command]
-pub async fn close_cash(state: State<'_, AppState>, counted_cents: i64, note: Option<String>) -> AppResult<String> {
-    cash::close_cash(&state.db().await?.pool, counted_cents, note.as_deref()).await
+pub async fn close_cash(state: State<'_, AppState>, counted_cents: i64, note: Option<String>) -> AppResult<CloseResult> {
+    let db = state.db().await?;
+    let session_id = cash::close_cash(&db.pool, counted_cents, note.as_deref()).await?;
+    let dir = state.config.read().await.auto_backup_dir.clone();
+    let (auto_backup, auto_backup_error) = match dir {
+        None => (None, None),
+        Some(d) => match backup::auto_backup(&db.pool, db.engine, std::path::Path::new(&d)).await {
+            Ok(p) => (Some(p.display().to_string()), None),
+            Err(e) => (None, Some(e.to_string())),
+        },
+    };
+    Ok(CloseResult { session_id, auto_backup, auto_backup_error })
+}
+
+#[tauri::command]
+pub async fn get_auto_backup_dir(state: State<'_, AppState>) -> AppResult<Option<String>> {
+    Ok(state.config.read().await.auto_backup_dir.clone())
+}
+
+/// `None` desactiva el respaldo automático. Se prueba que la carpeta sea escribible.
+#[tauri::command]
+pub async fn set_auto_backup_dir(state: State<'_, AppState>, dir: Option<String>) -> AppResult<()> {
+    if let Some(d) = &dir {
+        std::fs::create_dir_all(d)?;
+        let probe = std::path::Path::new(d).join(".mibodega-write-test");
+        std::fs::write(&probe, b"ok").map_err(|_| AppError::Validation("no se puede escribir en esa carpeta".into()))?;
+        let _ = std::fs::remove_file(probe);
+    }
+    let mut cfg = state.config.write().await;
+    cfg.auto_backup_dir = dir;
+    cfg.save(&state.config_path)?;
+    Ok(())
 }
 
 #[tauri::command]
