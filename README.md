@@ -2,7 +2,7 @@
 
 App de escritorio offline-first de inventario, ventas y caja. Tauri 2 + React + Rust + sqlx. Motor de datos: SQLite (default) o MySQL. Linux y Windows.
 
-Spec: `mi_bodega_v1_spec.md` · Plan de fases: `.claude/spec-plan.md`
+Spec: `spec/mi_bodega_v1_spec.md` · Plan de fases: `.claude/spec-plan.md`
 
 ## Requisitos
 - Rust estable, Node 24, pnpm

@@ -3,7 +3,7 @@
 > Generado: 2026-10-30. Última actualización: 2026-10-30.
 > Este archivo es la fuente de verdad del progreso. Actualízalo al
 > cerrar o avanzar cada fase.
-> Spec funcional: `mi_bodega_v1_spec.md` (RF/RN/HU se referencian abajo).
+> Spec funcional: `spec/mi_bodega_v1_spec.md` (RF/RN/HU se referencian abajo).
 
 ## Información General
 - **Stack**: Tauri 2 + React + TypeScript (UI) · Rust (dominio/casos de uso) · sqlx · SQLite (default) · MySQL (opcional, seleccionable en configuración). **Override del spec**: reemplaza Flutter/Drift; sin Android en V1.
@@ -21,10 +21,10 @@
 7. **Stock**: `stock_balances` materializado + kardex, actualizado en la misma transacción; test de invariante.
 
 ## Estado Actual
-- **Fase activa**: Fase 1 — Base técnica y arquitectura dual-DB (EN PROGRESO)
+- **Fase activa**: Fase 2 — Catálogo e inventario (EN PROGRESO); Fase 1 casi cerrada
 - **Progreso**: 0 de 6 fases completadas
 - **Bloqueadores**: ninguno (alcance MySQL y backup para ambos motores confirmados)
-- **Próximo paso concreto**: lanzar `pnpm tauri dev` y probar Setup (SQLite y MySQL); luego generación de tipos TS (ts-rs/specta), trait de repos y seed; validar CI en GitHub (build Windows).
+- **Próximo paso concreto (Fase 2)**: probar Productos/Inventario en la app (`./scripts/run.sh`, importar `examples/productos.csv`), pulir UX y cerrar fase. Pendientes Fase 1 (no bloquean): tipos TS autogenerados, ADR, seed, keyring. _Anterior:_ lanzar `pnpm tauri dev` y probar Setup (SQLite y MySQL); luego generación de tipos TS (ts-rs/specta), trait de repos y seed; validar CI en GitHub (build Windows).
 
 ---
 
@@ -79,7 +79,7 @@
 
 ---
 
-## Fase 2: Catálogo e inventario — PENDIENTE
+## Fase 2: Catálogo e inventario — EN PROGRESO
 
 **Duración estimada**: 4-5 días
 **Objetivo**: RF-01 y RF-02. Productos, categorías, presentaciones, stock derivado, kardex, ajustes y alertas.
@@ -91,32 +91,34 @@
 ### Entregables (Definición de Done)
 
 #### Backend
-- [ ] Repos/servicios: categorías, productos, presentaciones (factor entero > 0)
-- [ ] Unicidad SKU/barcode, desactivación sin borrado si hay movimientos
-- [ ] `stock_movements` + `stock_balances` actualizados en misma tx; tipos AJUSTE_ENTRADA/SALIDA
-- [ ] Ajuste manual con motivo obligatorio y antes/después
-- [ ] Búsqueda por nombre/SKU/barcode + filtro categoría; lista de stock bajo
-- [ ] Importación CSV de productos con validación por fila (reporte de errores)
-- [ ] Comandos Tauri correspondientes
+- [x] Repos/servicios: categorías, productos, presentaciones (factor entero > 0)
+- [x] Unicidad SKU/barcode, desactivación sin borrado si hay movimientos
+- [x] `stock_movements` + `stock_balances` actualizados en misma tx; tipos AJUSTE_ENTRADA/SALIDA
+- [x] Ajuste manual con motivo obligatorio y antes/después
+- [x] Búsqueda por nombre/SKU/barcode + filtro categoría; lista de stock bajo
+- [x] Importación CSV de productos con validación por fila (reporte de errores)
+- [x] Comandos Tauri correspondientes
 
 #### Frontend
-- [ ] Productos: lista con búsqueda, formulario, editor de presentaciones
-- [ ] Inventario: stock, kardex por producto/rango, diálogo de ajuste
-- [ ] Importar CSV con vista previa de errores
+- [x] Productos: lista con búsqueda, formulario, editor de presentaciones
+- [x] Inventario: stock, kardex por producto/rango, diálogo de ajuste
+- [x] Importar CSV con vista previa de errores
 
 #### Tests
-- [ ] Unit: validaciones, SKU duplicado, factor inválido
-- [ ] Integración (ambos motores): invariante `stock_balances == SUM(kardex)`
-- [ ] Stock inicial vía `AJUSTE_ENTRADA / STOCK_INICIAL`
+- [x] Unit: validaciones, SKU duplicado, factor inválido
+- [x] Integración (ambos motores): invariante `stock_balances == SUM(kardex)`
+- [x] Stock inicial vía `AJUSTE_ENTRADA / STOCK_INICIAL`
 
 #### Documentación
-- [ ] Formato CSV de importación (ejemplo)
+- [x] Formato CSV de importación (ejemplo en `examples/productos.csv`)
 
 ### Posibles obstáculos
 - Cantidades fraccionarias fuera de V1 → solo enteros en unidades base.
 
 ### Notas de avance
--
+- 2026-10-30: backend en `catalog.rs` / `inventory.rs`; único punto de cambio de stock = `inventory::apply_movement` (UPDATE condicional atómico, bloquea negativo). Migración 0002 agrega `balance_before/after` y `seq` (orden estable del kardex).
+- Tests `phase2_tests` pasan en SQLite y MySQL 8.4. Hallazgos: sqlx `Any` no decodifica `TINYINT` (MySQL usa BIGINT en flags); `SUM` en MySQL es DECIMAL → `CAST(... AS SIGNED)`; el dry-run de CSV usa una sola tx para detectar duplicados entre filas.
+- UI: Productos (CRUD, presentaciones, importar CSV con vista previa) e Inventario (stock, solo por reponer, kardex, ajuste con motivo). Falta validación manual en pantalla y exportar CSV (va en Fase 5).
 
 ---
 
@@ -304,6 +306,7 @@
 6. Rendimiento del flujo de venta → índices y búsqueda en Rust, no filtrar en React.
 
 ## Historial de Cambios
+- 2026-10-30: Fase 2 implementada (backend probado en ambos motores + UI); pendiente validación manual.
 - 2026-10-30: Fase 1 en progreso (base técnica, migraciones duales, setup UI, CI).
 - 2026-10-30: Confirmado alcance MySQL; backup in-app ahora cubre SQLite y MySQL (formato agnóstico).
 - 2026-10-30: Plan creado con 6 fases (adaptado de Flutter a Tauri+React+Rust, MySQL opcional).

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import logo from "../assets/logo.png";
 import { api, errorMessage, type BootState, type DbConfig, type Engine } from "../lib/api";
 
 const emptyMysql = { host: "127.0.0.1", port: 3306, user: "root", password: "", database: "mibodega" };
@@ -49,7 +50,8 @@ export default function Setup({ boot }: { boot: BootState }) {
 
   return (
     <div className="mx-auto mt-12 max-w-xl rounded-2xl bg-white p-8 shadow">
-      <h1 className="text-2xl font-bold">Bienvenido a Mi Bodega</h1>
+      <img src={logo} alt="Mi Bodega" className="mx-auto mb-4 w-48" />
+      <h1 className="text-2xl font-bold text-brand">Bienvenido a Mi Bodega</h1>
       <p className="mt-1 text-slate-600">Configura tu negocio para empezar a vender.</p>
 
       <div className="mt-6 space-y-4">
@@ -100,13 +102,13 @@ export default function Setup({ boot }: { boot: BootState }) {
           </div>
         )}
 
-        {msg && <p className={msg.ok ? "text-green-700" : "text-red-700"}>{msg.text}</p>}
+        {msg && <p className={msg.ok ? "text-emerald-700" : "text-red-700"}>{msg.text}</p>}
 
         <div className="flex gap-3">
           <button className="btn-ghost" onClick={test} disabled={busy}>
             Probar conexión
           </button>
-          <button className="btn-primary flex-1" onClick={start} disabled={busy}>
+          <button className="btn-accent flex-1" onClick={start} disabled={busy}>
             Comenzar
           </button>
         </div>
