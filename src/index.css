@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #0f766e;
+  --color-brand-dark: #115e59;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+@utility btn {
+  @apply inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-base font-semibold transition disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-brand text-white hover:bg-brand-dark;
+}
+@utility btn-ghost {
+  @apply btn border border-slate-300 bg-white hover:bg-slate-100;
+}
+@utility input {
+  @apply min-h-12 w-full rounded-lg border border-slate-300 bg-white px-4 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand/30;
+}
+@utility label {
+  @apply mb-1 block text-sm font-medium text-slate-700;
+}
